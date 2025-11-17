@@ -1,0 +1,22 @@
+{
+    "name": "ovhl-engine",
+    "tree": {
+        "$className": "DataModel",
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "OVHL": {"$path": "src/ReplicatedStorage/OVHL"},
+            "Packages": {"$path": "packages"}
+        },
+        "ServerScriptService": {
+            "$className": "ServerScriptService", 
+            "OVHL": {"$path": "src/ServerScriptService/OVHL"}
+        },
+        "StarterPlayer": {
+            "$className": "StarterPlayer",
+            "StarterPlayerScripts": {
+                "$className": "StarterPlayerScripts",
+                "OVHL": {"$path": "src/StarterPlayer/StarterPlayerScripts/OVHL"}
+            }
+        }
+    }
+}

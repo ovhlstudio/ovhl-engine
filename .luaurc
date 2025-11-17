@@ -1,0 +1,8 @@
+{
+    "types": {
+        "ovhl": "ReplicatedStorage/OVHL/Types/CoreTypes.lua"
+    },
+    "ignore": {
+        "packages/**/*"
+    }
+}

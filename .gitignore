@@ -1,0 +1,49 @@
+# ============================================
+# OVHL ENGINE - GITIGNORE
+# ============================================
+
+# Local development folders
+/lokal/*
+/src copy/*
+# Rojo build artifacts
+/roblox/
+*.rbxl
+*.rbxlx
+
+# Wally packages
+/Packages/
+/Package/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Local configuration overrides
+*.local.*
+.env
+.secret
+
+# Backup files
+*.bak
+*.backup
+
+# ============================================
+# END OVHL ENGINE GITIGNORE
+# ============================================
