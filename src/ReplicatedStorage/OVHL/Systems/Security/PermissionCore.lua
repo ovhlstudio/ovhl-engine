@@ -1,105 +1,133 @@
 --[[
 OVHL ENGINE V1.0.0
-@Component: PermissionCore (Core)
+@Component: PermissionCore (Refactored - Adapter Loader)
 @Path: ReplicatedStorage.OVHL.Systems.Security.PermissionCore
-@Purpose: [TODO: Add purpose]
+@Purpose: Load permission adapter based on config, delegate permission checks
 @Stability: STABLE
---]]
-
---[[
-OVHL ENGINE V3.0.0 - PERMISSION CORE (HD ADMIN STYLE)
-Version: 3.1.0
-Path: ReplicatedStorage.OVHL.Systems.Security.PermissionCore
-FEATURES:
-- Mimics HD Admin Ranks (Owner, Admin, Mod, etc)
-- Config-driven Rank mapping
 --]]
 
 local PermissionCore = {}
 PermissionCore.__index = PermissionCore
 
--- HD Admin Standard Ranks
-local RANKS = {
-    Owner = 5,
-    SuperAdmin = 4,
-    Admin = 3,
-    Mod = 2,
-    VIP = 1,
-    NonAdmin = 0
-}
-
 function PermissionCore.new()
-    local self = setmetatable({}, PermissionCore)
-    self._logger = nil
-    self._providers = {}
-    self._fallbackProvider = self:_createFallbackProvider()
-    self._permissionCache = {}
-    return self
+	local self = setmetatable({}, PermissionCore)
+	self._logger = nil
+	self._adapter = nil -- Will be loaded in Initialize
+	self._adapterName = nil
+	return self
 end
 
 function PermissionCore:Initialize(logger)
-    self._logger = logger
-    self._providers["Fallback"] = self._fallbackProvider
-    self._logger:Info("PERMISSION", "Permission Core initialized (HD Admin Style)")
+	self._logger = logger
+
+	-- Load config to determine which adapter to use
+	local ConfigLoader = require(script.Parent.Parent.Parent.Config.ConfigLoader)
+	local engineConfig = ConfigLoader:LoadEngineConfig()
+
+	if not engineConfig or not engineConfig.Adapters then
+		self._logger:Warn("PERMISSION", "No adapter config found, using Internal")
+		self._adapterName = "InternalAdapter"
+	else
+		self._adapterName = engineConfig.Adapters.Permission or "InternalAdapter"
+	end
+
+	self._logger:Info("PERMISSION", "PermissionCore initialized (will load adapter on Start)", {
+		adapter = self._adapterName,
+	})
 end
 
-function PermissionCore:_createFallbackProvider()
-    return {
-        Name = "Fallback",
-        Priority = 1,
-        
-        Check = function(player, permissionNode)
-            local module, action = string.match(permissionNode, "^(%w+)%.(.+)$")
-            if not module or not action then return false, "Invalid node" end
-            
-            -- Load Config dynamically
-            local success, config = pcall(function()
-                return require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL):GetConfig(module)
-            end)
-            
-            if not success or not config or not config.Permissions then 
-                return false, "No config/rules found" 
-            end
-            
-            local rule = config.Permissions[action]
-            if not rule then return false, "No permission rule for action: " .. action end
-            
-            -- Check Ranks
-            local playerRankId = self:_getPlayerRankId(player)
-            local requiredRank = rule.Rank or RANKS.NonAdmin -- Default to 0
-            
-            -- Convert String Rank to ID if needed
-            if type(requiredRank) == "string" then
-                requiredRank = RANKS[requiredRank] or 999
-            end
-            
-            if playerRankId >= requiredRank then
-                return true
-            end
-            
-            return false, "Rank too low (Required: " .. tostring(requiredRank) .. ", Got: " .. tostring(playerRankId) .. ")"
-        end
-    }
-end
+function PermissionCore:Start()
+	-- Load the selected adapter
+	local adapterPath = script.Parent.Parent.Adapters.Permission:FindFirstChild(self._adapterName)
 
-function PermissionCore:_getPlayerRankId(player)
-    -- SIMULATE HD ADMIN LOGIC
-    if player.UserId == game.CreatorId then return RANKS.Owner end
-    -- Bisa ditambah logic check GroupRank disini nanti
-    return RANKS.NonAdmin -- Default everyone is 0
+	if not adapterPath then
+		self._logger:Warn("PERMISSION", "Adapter not found, falling back to Internal", {
+			requested = self._adapterName,
+		})
+		adapterPath = script.Parent.Parent.Adapters.Permission:FindFirstChild("InternalAdapter")
+	end
+
+	if not adapterPath then
+		self._logger:Critical("PERMISSION", "CRITICAL: No adapters found!")
+		return false
+	end
+
+	-- Load adapter
+	local success, AdapterClass = pcall(require, adapterPath)
+
+	if not success then
+		self._logger:Error("PERMISSION", "Failed to load adapter", {
+			adapter = self._adapterName,
+			error = tostring(AdapterClass),
+		})
+
+		-- Try Internal fallback
+		local internalPath = script.Parent.Parent.Adapters.Permission:FindFirstChild("InternalAdapter")
+		if internalPath then
+			success, AdapterClass = pcall(require, internalPath)
+		end
+	end
+
+	if success and AdapterClass then
+		self._adapter = AdapterClass.new()
+		self._adapter:Initialize(self._logger)
+
+		self._logger:Info("PERMISSION", "Permission adapter loaded", {
+			adapter = self._adapterName,
+		})
+		return true
+	else
+		self._logger:Critical("PERMISSION", "FAILED: Could not load any adapter")
+		return false
+	end
 end
 
 function PermissionCore:Check(player, permissionNode)
-    local provider = self._providers["Fallback"] -- Prioritize HD Admin later
-    local allowed, reason = provider.Check(player, permissionNode)
-    
-    if allowed then
-        self._logger:Debug("PERMISSION", "Access Granted", {player=player.Name, node=permissionNode})
-    else
-        self._logger:Warn("PERMISSION", "Access Denied", {player=player.Name, node=permissionNode, reason=reason})
-    end
-    
-    return allowed, reason
+	if not self._adapter then
+		self._logger:Error("PERMISSION", "Adapter not initialized")
+		return false, "Adapter not ready"
+	end
+
+	local allowed, reason = self._adapter:CheckPermission(player, permissionNode)
+
+	if allowed then
+		self._logger:Debug("PERMISSION", "Access Granted", {
+			player = player.Name,
+			node = permissionNode,
+		})
+	else
+		self._logger:Warn("PERMISSION", "Access Denied", {
+			player = player.Name,
+			node = permissionNode,
+			reason = reason,
+		})
+	end
+
+	return allowed, reason
+end
+
+function PermissionCore:GetRank(player)
+	if not self._adapter then
+		return 0
+	end
+
+	if self._adapter.GetRank then
+		return self._adapter:GetRank(player)
+	end
+
+	return 0
+end
+
+function PermissionCore:SetRank(player, rank)
+	if not self._adapter then
+		return false
+	end
+
+	if self._adapter.SetRank then
+		return self._adapter:SetRank(player, rank)
+	end
+
+	return false
 end
 
 return PermissionCore
@@ -110,4 +138,3 @@ return PermissionCore
 @LastUpdate: 2025-11-18
 @Maintainer: OVHL Core Team
 --]]
-

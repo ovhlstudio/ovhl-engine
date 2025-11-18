@@ -7,7 +7,6 @@ OVHL ENGINE V1.0.0
 --]]
 
 --[[
-OVHL ENGINE V3.4.0 (ADR-004)
 @Component: ServerRuntime
 @Path: ServerScriptService.OVHL.ServerRuntime.server.lua
 @Purpose: (V3.4.0) Entry point server. Menambahkan hook BindToClose untuk memicu Fase 4 (Shutdown).
