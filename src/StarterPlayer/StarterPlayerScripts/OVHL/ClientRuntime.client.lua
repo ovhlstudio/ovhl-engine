@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: ClientRuntime.client (Module)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.ClientRuntime.client
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - CLIENT RUNTIME ENTRY POINT (PATCHED V2)
 Version: 3.0.2
 Path: StarterPlayer.StarterPlayerScripts.OVHL.ClientRuntime
@@ -93,3 +101,11 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
         if mc then mc:ToggleMainUI() end
     end
 end)
+
+--[[
+@End: ClientRuntime.client.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

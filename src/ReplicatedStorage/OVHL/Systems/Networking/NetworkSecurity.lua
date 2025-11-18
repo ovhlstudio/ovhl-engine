@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: NetworkSecurity (Security)
+@Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkSecurity
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - NETWORK SECURITY MIDDLEWARE
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkSecurity
@@ -151,3 +159,11 @@ function NetworkSecurity:CleanupModule(moduleName)
 end
 
 return NetworkSecurity
+
+--[[
+@End: NetworkSecurity.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: PlayerManager (Advanced)
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.PlayerManager
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.4.0 (ADR-004)
 @Component: PlayerManager (Core System)
 @Path: ReplicatedStorage.OVHL.Systems/Advanced/PlayerManager
@@ -135,3 +143,11 @@ return PlayerManager
 @Version: 3.4.0 (ADR-004)
 @See: docs/ADR_V3-3-0.md, docs/ADR_V3-4-0.md (Diusulkan)
 --]]
+
+--[[
+@End: PlayerManager.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

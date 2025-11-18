@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: PermissionCore (Core)
+@Path: ReplicatedStorage.OVHL.Systems.Security.PermissionCore
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - PERMISSION CORE (HD ADMIN STYLE)
 Version: 3.1.0
 Path: ReplicatedStorage.OVHL.Systems.Security.PermissionCore
@@ -95,3 +103,11 @@ function PermissionCore:Check(player, permissionNode)
 end
 
 return PermissionCore
+
+--[[
+@End: PermissionCore.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

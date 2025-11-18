@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: NotificationService (Advanced)
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.NotificationService
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.2.2
 @Component: NotificationService (Core System)
 @Path: ReplicatedStorage.OVHL.Systems.Advanced.NotificationService
@@ -53,3 +61,11 @@ return NotificationService
 @Version: 3.2.2
 @See: docs/ADR_V3-2-2.md
 --]]
+
+--[[
+@End: NotificationService.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

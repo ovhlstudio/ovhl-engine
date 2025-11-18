@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: MinimalController (Module)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.MinimalModule.MinimalController
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - MINIMAL CONTROLLER (FINAL COMPLIANT)
 Version: 3.0.5
 Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.MinimalModule.MinimalController
@@ -123,3 +131,11 @@ function MinimalController:FetchModuleData()
 end
 
 return MinimalController
+
+--[[
+@End: MinimalController.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

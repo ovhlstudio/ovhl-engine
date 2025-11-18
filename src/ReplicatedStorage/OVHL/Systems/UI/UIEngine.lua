@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: UIEngine (UI)
+@Path: ReplicatedStorage.OVHL.Systems.UI.UIEngine
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - UI ENGINE (FINAL)
 Version: 3.0.3
 Path: ReplicatedStorage.OVHL.Systems.UI.UIEngine
@@ -142,3 +150,11 @@ function UIEngine:GetAvailableFrameworks()
 end
 
 return UIEngine
+
+--[[
+@End: UIEngine.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

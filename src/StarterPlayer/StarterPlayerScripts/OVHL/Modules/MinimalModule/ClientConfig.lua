@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: ClientConfig (Module)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.MinimalModule.ClientConfig
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE CLIENT CONFIG
 Version: 3.0.0
 Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.MinimalModule.ClientConfig
@@ -30,3 +38,11 @@ return {
         }
     }
 }
+
+--[[
+@End: ClientConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

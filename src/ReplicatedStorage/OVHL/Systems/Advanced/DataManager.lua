@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: DataManager (Advanced)
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.DataManager
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.3.0 (FINAL)
 @Component: DataManager (Core System)
 @Path: ReplicatedStorage.OVHL.Systems.Advanced.DataManager
@@ -140,3 +148,11 @@ return DataManager
 @Version: 3.3.0 (Two-Phase Init)
 @See: docs/ADR_V3-3-0.md
 --]]
+
+--[[
+@End: DataManager.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+
