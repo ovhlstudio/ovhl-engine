@@ -1,296 +1,297 @@
 #!/bin/bash
 set -e
 
-echo "☢️ STARTING NUCLEAR SWEEP: OVERWRITING FILES TO V.1.0.1"
-echo "========================================================"
+echo "🛠️ [OVHL ARCHITECT] Finalizing V1.1.0 Wiring (Absolute Paths)..."
 
-# ------------------------------------------------------------------------------
-# 1. OVERWRITE SERVER RUNTIME (FULL REWRITE)
-# ------------------------------------------------------------------------------
-SR_FILE="src/ServerScriptService/OVHL/ServerRuntime.server.lua"
-echo "📝 Overwriting: $SR_FILE"
-
-cat << 'EOF' > "$SR_FILE"
+# 1. FIX NOTIFICATION SERVICE (SERVER)
+# Masalah: Relative path ke Core putus karena pindah ke SSS.
+echo "🔧 Rewiring NotificationService.lua (V1.1.0)..."
+cat << 'EOF' > src/ServerScriptService/OVHL/Systems/Advanced/NotificationService.lua
 --[[
-OVHL FRAMEWORK V.1.0.1
-@Component: ServerRuntime.server (Entry Point)
-@Path: ServerScriptService.OVHL.ServerRuntime.server
-@Purpose: Server-side bootstrap entry point
-@Version: 1.0.1
+OVHL FRAMEWORK V.1.1.0
+@Component: NotificationService (Core System)
+@Path: ServerScriptService.OVHL.Systems.Advanced.NotificationService
+@Purpose: Menyediakan API terpusat untuk mengirim notifikasi (Toast, UI) ke client.
 --]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Bootstrap = require(ReplicatedStorage.OVHL.Core.Bootstrap)
+local NotificationService = {}
+NotificationService.__index = NotificationService
 
-local OVHL = Bootstrap:Initialize()
-local Logger = OVHL.GetSystem("SmartLogger")
-
--- [FIX VERSION]
-Logger:Info("SERVER", "🚀 Starting OVHL Server Runtime V.1.0.1 (Standard)")
-
-local Kernel = require(ReplicatedStorage.OVHL.Core.Kernel).new()
-Kernel:Initialize(Logger)
-local modulesFound = Kernel:ScanModules()
-
-local SystemRegistry = OVHL.GetSystem("SystemRegistry")
-if SystemRegistry then
-    Logger:Info("SYSTEMREGISTRY", "SystemRegistry initialized (V.1.0.1)")
-end
-
-Knit.Start()
-    :andThen(function()
-        Logger:Info("SERVER", "Knit started")
-        local registeredCount = Kernel:RegisterKnitServices(Knit)
-        Kernel:RunVerification()
-
-        local securitySystems = { "InputValidator", "RateLimiter", "PermissionCore", "SecurityHelper" }
-        local securityReady = 0
-        for _, name in ipairs(securitySystems) do
-            if OVHL.GetSystem(name) then
-                securityReady = securityReady + 1
-            end
-        end
-
-        Logger:Info("SERVER", "🎉 OVHL Server Ready", {
-            modules = modulesFound,
-            kernel = registeredCount,
-            security = securityReady .. "/" .. #securitySystems,
-        })
-    end)
-    :catch(function(err)
-        Logger:Critical("SERVER", "Runtime Failed", { error = tostring(err) })
-    end)
-
-game:BindToClose(function()
-    if SystemRegistry then
-        Logger:Critical("SERVER", "Game closing. Initiating OVHL Shutdown...")
-        SystemRegistry:Shutdown()
-    else
-        Logger:Critical("SERVER", "Game closing. SystemRegistry not found!")
-    end
-    task.wait(1)
-end)
-EOF
-
-# ------------------------------------------------------------------------------
-# 2. OVERWRITE SYSTEM REGISTRY (FULL REWRITE - KEEPING PHASE 5 FIX)
-# ------------------------------------------------------------------------------
-REG_FILE="src/ReplicatedStorage/OVHL/Core/SystemRegistry.lua"
-echo "📝 Overwriting: $REG_FILE"
-
-cat << 'EOF' > "$REG_FILE"
---[[
-OVHL FRAMEWORK V.1.0.1
-@Component: SystemRegistry (Core Orchestrator)
-@Path: ReplicatedStorage.OVHL.Core.SystemRegistry
-@Purpose: Full Lifecycle Orchestrator
-@Version: 1.0.1
---]]
-
-local SystemRegistry = {}
-SystemRegistry.__index = SystemRegistry
-
-function SystemRegistry.new(ovhl, logger)
-    local self = setmetatable({}, SystemRegistry)
-    self._systems = {} 
-    self._manifests = {} 
-    self._loadOrder = {} 
-    self._status = {} 
-    self._ovhl = ovhl
-    self._logger = logger
-    -- [FIX VERSION]
-    self._logger:Info("SYSTEMREGISTRY", "System Registry V.1.0.1 (4-Phase Lifecycle) initialized")
+function NotificationService.new()
+    local self = setmetatable({}, NotificationService)
+    self._logger = nil
+    self._router = nil
     return self
 end
 
-function SystemRegistry:RegisterAndStartFromManifests(manifestsMap)
-    self._manifests = manifestsMap
-
-    local success, result = pcall(function() return self:_ResolveLoadOrder() end)
-    if not success then
-        self._logger:Critical("SYSTEMREGISTRY", "FATAL BOOT ERROR: Circular Dependency!", { error = result })
-        return 0, table.getn(self._manifests)
+function NotificationService:Initialize(logger)
+    self._logger = logger
+    
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+    local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
+    self._router = OVHL.GetSystem("NetworkingRouter") 
+    
+    if not self._router then
+        self._logger:Error("NOTIFICATION", "Gagal mendapatkan NetworkingRouter!")
+        return
     end
-    self._loadOrder = result
-
-    local initCount, initFailed = self:_RunInitializationPhase()
-    if initFailed > 0 then
-        self._logger:Critical("SYSTEMREGISTRY", "FATAL BOOT ERROR: Init Failed!", { failed = initFailed })
-        return initCount, initFailed
-    end
-
-    self:_RegisterWithOVHL()
-    local startCount, startFailed = self:_RunStartPhase()
-    return startCount, startFailed
+    
+    self._logger:Info("NOTIFICATION", "Notification Service Ready (Server API).")
 end
 
-function SystemRegistry:Shutdown()
-    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 4 (Destroy/Shutdown)...")
-    local success, result = pcall(function() return self:_RunDestroyPhase() end)
-    if not success then
-        self._logger:Critical("SYSTEMREGISTRY", "FATAL SHUTDOWN ERROR!", { error = result })
-    else
-        self._logger:Info("SYSTEMREGISTRY", "Shutdown complete.", { systems = result })
-    end
+function NotificationService:SendToPlayer(player, message, icon, duration)
+    if not self._router then return end
+    
+    self._router:SendToClient(player, "OVHL.Notification.Show", {
+        Message = message,
+        Icon = icon or "Info",
+        Duration = duration or 5
+    })
 end
 
-function SystemRegistry:_ResolveLoadOrder()
-    local visited = {}
-    local tempMarked = {}
-    local order = {}
-    local function visit(systemName)
-        if tempMarked[systemName] then error("Circular Dependency: " .. systemName, 2) end
-        if not visited[systemName] then
-            local manifest = self._manifests[systemName]
-            if not manifest then error("Missing Dependency: " .. systemName, 2) end
-            tempMarked[systemName] = true
-            for _, depName in ipairs(manifest.dependencies or {}) do visit(depName) end
-            tempMarked[systemName] = nil
-            visited[systemName] = true
-            table.insert(order, systemName)
-        end
-    end
-    for systemName, _ in pairs(self._manifests) do visit(systemName) end
-    return order
+function NotificationService:SendToAll(message, icon, duration)
+    if not self._router then return end
+    self._logger:Warn("NOTIFICATION", "SendToAll belum diimplementasi di router.")
 end
 
-function SystemRegistry:_RunInitializationPhase()
-    local startedCount = 0
-    local failedCount = 0
-    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 1 (Initialize)...")
-
-    for _, systemName in ipairs(self._loadOrder) do
-        local manifest = self._manifests[systemName]
-        local success, moduleClass = pcall(require, manifest.modulePath)
-        if not success then
-            self._status[systemName] = "ERROR_LOAD"
-            self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = "Require fail" })
-            failedCount = failedCount + 1
-            continue
-        end
-
-        local success, systemInstance = pcall(moduleClass.new)
-        if not success then
-            self._status[systemName] = "ERROR_NEW"
-            self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = "New fail" })
-            failedCount = failedCount + 1
-            continue
-        end
-
-        if systemInstance.Initialize and type(systemInstance.Initialize) == "function" then
-            local success, errorMsg = pcall(function() systemInstance:Initialize(self._logger) end)
-            if not success then
-                self._status[systemName] = "ERROR_INIT"
-                self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = errorMsg })
-                failedCount = failedCount + 1
-                continue
-            end
-        end
-
-        self._status[systemName] = "INIT"
-        self._systems[systemName] = systemInstance
-        startedCount = startedCount + 1
-    end
-    return startedCount, failedCount
-end
-
-function SystemRegistry:_RegisterWithOVHL()
-    for systemName, systemInstance in pairs(self._systems) do
-        if self._status[systemName] == "INIT" then
-            -- [CRITICAL KEEP] Phase 5 Fix: Dot Notation
-            self._ovhl.RegisterSystem(systemName, systemInstance) 
-        end
-    end
-end
-
-function SystemRegistry:_RunStartPhase()
-    local startedCount = 0
-    local failedCount = 0
-    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 3 (Start)...")
-
-    for _, systemName in ipairs(self._loadOrder) do
-        local systemInstance = self._systems[systemName]
-        if self._status[systemName] == "INIT" then
-            if systemInstance.Start and type(systemInstance.Start) == "function" then
-                local success, errorMsg = pcall(function() systemInstance:Start() end)
-                if not success then
-                    self._status[systemName] = "ERROR_START"
-                    self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = errorMsg })
-                    failedCount = failedCount + 1
-                else
-                    self._status[systemName] = "READY"
-                    startedCount = startedCount + 1
-                    self._logger:Debug("SYSTEMREGISTRY", "Started (Ready)", { system = systemName })
-                end
-            else
-                self._status[systemName] = "READY"
-                startedCount = startedCount + 1
-                self._logger:Debug("SYSTEMREGISTRY", "Started (Pasif)", { system = systemName })
-            end
-        end
-    end
-    return startedCount, failedCount
-end
-
-function SystemRegistry:_RunDestroyPhase()
-    local destroyedCount = 0
-    local failedCount = 0
-    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 4 (Destroy)...")
-
-    for i = #self._loadOrder, 1, -1 do
-        local systemName = self._loadOrder[i]
-        local systemInstance = self._systems[systemName]
-        if self._status[systemName] == "READY" then
-            if systemInstance.Destroy and type(systemInstance.Destroy) == "function" then
-                local success, errorMsg = pcall(function() systemInstance:Destroy() end)
-                if not success then
-                    self._status[systemName] = "ERROR_DESTROY"
-                    self._logger:Error("SYSREG", "Shutdown GAGAL", { system = systemName, error = errorMsg })
-                    failedCount = failedCount + 1
-                else
-                    self._status[systemName] = "DESTROYED"
-                    destroyedCount = destroyedCount + 1
-                end
-            else
-                self._status[systemName] = "DESTROYED"
-                destroyedCount = destroyedCount + 1
-            end
-        end
-    end
-    return destroyedCount, failedCount
-end
-
-function SystemRegistry:GetSystemStatus(systemName) return self._status[systemName] or "NOT_FOUND" end
-function SystemRegistry:GetLoadOrder() return self._loadOrder end
-function SystemRegistry:GetHealthStatus()
-    local health = {}
-    for systemName, manifest in pairs(self._manifests) do
-        health[systemName] = { Status = self._status[systemName] or "REGISTERED", Dependencies = manifest.dependencies or {} }
-    end
-    return health
-end
-
-return SystemRegistry
+return NotificationService
 EOF
 
-# ------------------------------------------------------------------------------
-# 3. VERIFIKASI MANDIRI
-# ------------------------------------------------------------------------------
-echo "🔎 Final Verification..."
-if grep -q "V3.4.0" "$SR_FILE"; then
-    echo "❌ GAGAL: V3.4.0 masih ada di ServerRuntime!"
-    exit 1
-else
-    echo "✅ Verified: ServerRuntime V.1.0.1"
-fi
+# 2. FIX PLAYER MANAGER (SERVER)
+# Masalah: Relative path ke Core putus (Prevention).
+echo "🔧 Rewiring PlayerManager.lua (V1.1.0)..."
+cat << 'EOF' > src/ServerScriptService/OVHL/Systems/Advanced/PlayerManager.lua
+--[[
+OVHL FRAMEWORK V.1.1.0
+@Component: PlayerManager (Core System)
+@Path: ServerScriptService.OVHL.Systems.Advanced.PlayerManager
+@Purpose: Player Lifecycle with Safe Data Handling
+--]]
 
-if grep -q "V3.4.0" "$REG_FILE"; then
-    echo "❌ GAGAL: V3.4.0 masih ada di SystemRegistry!"
-    exit 1
-else
-    echo "✅ Verified: SystemRegistry V.1.0.1"
-fi
+local Players = game:GetService("Players")
+local PlayerManager = {}
+PlayerManager.__index = PlayerManager
 
-echo ""
-echo "✅ NUCLEAR SWEEP SUCCESSFUL. Version Cleaned."
+function PlayerManager.new()
+	local self = setmetatable({}, PlayerManager)
+	self._logger = nil
+	self._dataManager = nil
+	self._connections = {}
+	return self
+end
+
+function PlayerManager:Initialize(logger)
+	self._logger = logger
+end
+
+function PlayerManager:Start()
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+	local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
+	self._dataManager = OVHL.GetSystem("DataManager")
+
+	if not self._dataManager then
+		self._logger:Critical("PLAYERMANAGER", "GAGAL mendapatkan DataManager!")
+		return
+	end
+
+	self:_connectEvents()
+	self._logger:Info("PLAYERMANAGER", "Player Manager Ready.")
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(function() self:_onPlayerAdded(player) end)
+	end
+end
+
+function PlayerManager:Destroy()
+	self._logger:Info("PLAYERMANAGER", "Shutdown: Saving data...")
+	self:_onGameClose()
+	for _, connection in pairs(self._connections) do
+		pcall(function() connection:Disconnect() end)
+	end
+	self._connections = {}
+end
+
+function PlayerManager:_connectEvents()
+	self._connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
+		self:_onPlayerAdded(player)
+	end)
+	self._connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
+		self:_onPlayerRemoving(player)
+	end)
+end
+
+function PlayerManager:_onPlayerAdded(player)
+	self._logger:Info("PLAYERMANAGER", "Player Joining...", { player = player.Name })
+
+	if not self._dataManager then return end
+
+	local data = self._dataManager:LoadData(player)
+
+	if data then
+		self._logger:Info("PLAYERMANAGER", "Data siap.", { player = player.Name })
+	else
+		self._logger:Critical("PLAYERMANAGER", "DATA LOAD GAGAL TOTAL! Kicking player untuk keamanan.", { player = player.Name })
+        player:Kick("⚠️ OVHL Security: Gagal memuat data profil Anda. Silakan rejoin.")
+	end
+end
+
+function PlayerManager:_onPlayerRemoving(player)
+	self._logger:Info("PLAYERMANAGER", "Player Leaving...", { player = player.Name })
+	if not self._dataManager then return end
+
+	local success = self._dataManager:SaveData(player)
+	self._dataManager:ClearCache(player)
+end
+
+function PlayerManager:_onGameClose()
+	for _, player in ipairs(Players:GetPlayers()) do
+		self:_onPlayerRemoving(player)
+	end
+end
+
+return PlayerManager
+EOF
+
+# 3. FIX UI MANAGER (CLIENT)
+# Masalah: Relative path ke Adapters putus karena pindah ke PlayerScripts.
+echo "🔧 Rewiring UIManager.lua (V1.1.0)..."
+cat << 'EOF' > src/StarterPlayer/StarterPlayerScripts/OVHL/Systems/UI/UIManager.lua
+--[[
+OVHL FRAMEWORK V.1.1.0
+@Component: UIManager (UI)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Systems.UI.UIManager
+@Purpose: Screen lifecycle & Adapter-based Navbar management
+--]]
+
+local UIManager = {}
+UIManager.__index = UIManager
+
+function UIManager.new()
+    local self = setmetatable({}, UIManager)
+    self._logger = nil
+    self._screens = {}
+    self._eventBindings = {}
+    self._adapter = nil
+    self._fallbackAdapter = nil
+    self._adapterName = nil
+    return self
+end
+
+function UIManager:Initialize(logger)
+    self._logger = logger
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+    local success, cfg = pcall(function() return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig) end)
+    self._adapterName = (success and cfg.Adapters and cfg.Adapters.Navbar) or "InternalAdapter"
+    self._logger:Info("UIMANAGER", "Init", {navbar = self._adapterName})
+end
+
+function UIManager:Start()
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH TO SHARED ADAPTERS
+    local folder = game:GetService("ReplicatedStorage").OVHL.Systems.Adapters.Navbar
+    
+    local mod = folder:FindFirstChild(self._adapterName)
+    if mod then
+        local cls = require(mod)
+        self._adapter = cls.new()
+        if self._adapter.Initialize then self._adapter:Initialize(self._logger) end
+    end
+    local fallbackMod = folder:FindFirstChild("InternalAdapter")
+    if fallbackMod then
+        local cls = require(fallbackMod)
+        self._fallbackAdapter = cls.new()
+        if self._fallbackAdapter.Initialize then self._fallbackAdapter:Initialize(self._logger) end
+    end
+end
+
+function UIManager:RegisterScreen(screenName, screenInstance)
+    self._screens[screenName] = { Instance = screenInstance, Enabled = false }
+    self._logger:Debug("UIMANAGER", "Screen registered", {name=screenName})
+end
+
+function UIManager:ShowScreen(screenName)
+    local s = self._screens[screenName]
+    if s then 
+        s.Instance.Enabled = true
+        s.Enabled = true 
+        self._logger:Debug("UIMANAGER", "Show Screen", {name=screenName})
+        return true 
+    end
+    self._logger:Warn("UIMANAGER", "Show failed: Screen not found", {name=screenName})
+    return false
+end
+
+function UIManager:HideScreen(screenName)
+    local s = self._screens[screenName]
+    if s then 
+        s.Instance.Enabled = false
+        s.Enabled = false 
+        return true 
+    end
+    return false
+end
+
+function UIManager:ToggleScreen(screenName)
+    local s = self._screens[screenName]
+    if not s then 
+        self._logger:Warn("UIMANAGER", "Toggle failed: Screen not found", {name=screenName})
+        return false 
+    end
+    if s.Enabled then return self:HideScreen(screenName) else return self:ShowScreen(screenName) end
+end
+
+function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+    local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
+    local fullConfig = OVHL.GetClientConfig(moduleName)
+    
+    if not fullConfig then
+        self._logger:Warn("UIMANAGER", "Gagal load config untuk Topbar", {module=moduleName})
+        return false
+    end
+    
+    local topbarConfig = fullConfig.Topbar or (fullConfig.UI and fullConfig.UI.Topbar)
+    
+    if not topbarConfig or not topbarConfig.Enabled then 
+        return nil 
+    end
+
+    if explicitOnClick then
+        topbarConfig.OnClick = explicitOnClick
+    elseif not topbarConfig.OnClick then
+         self._logger:Warn("UIMANAGER", "Topbar setup without OnClick handler", {module=moduleName})
+         return false
+    end
+    
+    local success = false
+    if self._adapter then
+        success = self._adapter:AddButton(moduleName, topbarConfig)
+    end
+    
+    if not success then
+        if self._fallbackAdapter then
+            self._logger:Warn("UIMANAGER", "Main Adapter failed, using Fallback", {module=moduleName})
+            success = self._fallbackAdapter:AddButton(moduleName, topbarConfig)
+        else
+            self._logger:Critical("UIMANAGER", "No Navbar Adapter available!")
+        end
+    end
+    
+    return success
+end
+
+function UIManager:FindComponent(screenName, componentName)
+    local s = self._screens[screenName]
+    if not s then return nil end
+    return s.Instance:FindFirstChild(componentName, true)
+end
+
+function UIManager:BindEvent(component, eventName, callback)
+    if not component then return false end
+    component[eventName]:Connect(callback)
+    return true
+end
+
+return UIManager
+EOF
+
+echo "✅ V1.1.0 ARCHITECTURE FIXED & LOCKED."

@@ -1,15 +1,7 @@
 --[[
-OVHL ENGINE V1.0.0
-@Component: NotificationService (Advanced)
-@Path: ReplicatedStorage.OVHL.Systems.Advanced.NotificationService
-@Purpose: [TODO: Add purpose]
-@Stability: STABLE
---]]
-
---[[
-OVHL FRAMEWORK V.1.0.1
-@Component: @Component: NotificationService (Core System) (Standard)
-@Path: ReplicatedStorage.OVHL.Systems.Advanced.NotificationService
+OVHL FRAMEWORK V.1.1.0
+@Component: NotificationService (Core System)
+@Path: ServerScriptService.OVHL.Systems.Advanced.NotificationService
 @Purpose: Menyediakan API terpusat untuk mengirim notifikasi (Toast, UI) ke client.
 --]]
 
@@ -26,7 +18,8 @@ end
 function NotificationService:Initialize(logger)
     self._logger = logger
     
-    local OVHL = require(script.Parent.Parent.Parent.Core.OVHL)
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+    local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
     self._router = OVHL.GetSystem("NetworkingRouter") 
     
     if not self._router then
@@ -49,23 +42,7 @@ end
 
 function NotificationService:SendToAll(message, icon, duration)
     if not self._router then return end
-    
-    -- TODO: NetworkingRouter butuh :SendToAllClients (Sesuai SSoT V.1.0.1)
     self._logger:Warn("NOTIFICATION", "SendToAll belum diimplementasi di router.")
 end
 
 return NotificationService
-
---[[
-@End: NotificationService.lua
-@Version: 1.0.1
-@See: docs/ADR_V3-2-2.md
---]]
-
---[[
-@End: NotificationService.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-
