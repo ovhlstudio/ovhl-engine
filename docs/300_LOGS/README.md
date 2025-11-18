@@ -1,76 +1,70 @@
 > START OF ./docs/300_LOGS/README.md
-
-- **OVHL ENGINE V3.1.0** > **STATUS:** FINAL & AUTHORITATIVE
-- **AUDIENCE:** TIM INTI, AI
-- **PURPOSE:** Menyediakan template standar untuk `DEV_LOG` dan `ADR_LOG` (Sesuai Mandat Logging #4 di `00_AI_WORKFLOW_GUIDE.md`).
-
----
-
-# 📈 300_LOGS: Template Logging
-
-Gunakan template di bawah ini untuk semua entri log baru.
+>
+> **OVHL ENGINE V3.4.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **AUDIENCE:** AI & CORE DEVELOPERS
+> **PURPOSE:** Menetapkan format dan penyimpanan log sentral engine.
 
 ---
 
-## 1. TEMPLATE: DEV_LOG (Progres Fitur/Bug)
+# 📚 300_LOGS.MD (Logging Standards V3.4.0)
 
-Gunakan ini di folder `301_DEV_LOG/` untuk melacak progres harian, bug, dan penyelesaian fitur.
+## 1. HUKUM LOGGING MONOLITHIC (V3.4.0)
+
+Semua log yang relevan harus dicatat ke dalam **dua file utama** yang terletak di `docs/300_LOGS/`. **Semua folder log sebelumnya harus dihapus.**
+
+| File Log             | Tujuan                                                                                                                                                     | Prioritas Entri                                               |
+| :------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ |
+| **`302_ADR_LOG.md`** | Mencatat Keputusan Arsitektural (Architecture Decision Record) yang berdampak besar pada struktur atau stabilitas. **Wajib dirujuk** ke dokumen blueprint. | **Tertinggi** (Reverse Chronological: Terbaru di Paling Atas) |
+| **`301_DEV_LOG.md`** | Mencatat sesi kerja penting (Refaktor besar, Perbaikan _Crash_ Kritis, Implementasi Fitur Baru).                                                           | **Tinggi** (Reverse Chronological: Terbaru di Paling Atas)    |
+
+### ⚠️ Mandat: Reverse Chronological Order
+
+Setiap entri log baru **WAJIB** ditambahkan di bagian **paling atas** dari file tersebut.
+
+## 2. FORMAT LOG
+
+### Format ADR_LOG (`302_ADR_LOG.md`)
 
 ```markdown
-**TANGGAL:** YYYY-MM-DD, HH:MM
-**KONTEKS:** [Apa yang sedang dikerjakan? Misal: "Refactor UIManager Adapter"]
-**STATUS:** [STUCK / SELESAI / GAGAL / INVESTIGASI]
+# 📢 [TANGGAL YYYY-MM-DD] Keputusan ADR-[NOMOR] - [JUDUL KEPUTUSAN]
 
-**TUJUAN:**
-[Tujuan dari sesi kerja ini.]
+**TANGGAL KEPUTUSAN:** [Tanggal Lengkap]
+**KONTEKS:** [Masalah yang ingin dipecahkan]
+**STATUS:** [DITETAPKAN/DITOLAK/DIGANTIKAN]
 
-**FILE YANG DIUBAH / DIBUAT / DIHAPUS:**
-
-- `src/path/to/file.lua` (Alasan: ...)
-
-**HASIL ITERASI / KEPUTUSAN:**
-
-- [Poin 1 progres]
-- [Poin 2 progres]
-
-**MASALAH (JIKA ADA):**
-
-- **Problem:** [Deskripsi masalah]
-- **Root Cause:** [Analisis penyebab]
-- **Solusi:** [Bagaimana menyelesaikannya]
-
-**PELAJARAN (UNTUK AI/DEV BERIKUTNYA):**
-
-- **BOLEH:** [Pola yang harus diikuti]
-- **TIDAK BOLEH:** [Pola yang harus dihindari]
-```
-
-## 2. TEMPLATE: ADR_LOG (Keputusan Arsitektur)
-
-Gunakan ini di folder `302_ADR_LOG/` untuk mencatat keputusan arsitektur yang penting dan permanen.
-
-```Markdown
-**TANGGAL:** YYYY-MM-DD, HH:MM
-**KONTEKS:** [Keputusan arsitektur apa? Misal: "Pemilihan Pola Adapter vs Hardcoded"]
-**STATUS:** [DITETAPKAN / DIPERTIMBANGKAN]
-
-**KEPUTUSAN (ADR-XXX):**
-[Keputusan final yang diambil.]
+**KEPUTUSAN (ADR-XXX):** [Ringkasan Keputusan]
 
 **ALASAN / KONTEKS:**
-
-- [Mengapa keputusan ini diambil?]
-- [Alternatif apa yang ditolak dan mengapa?]
+[Alasan detail mengapa keputusan ini dipilih.]
 
 **DAMPAK (IMPACT):**
+[File apa saja yang terkena dampak, bagaimana alur kerjanya berubah.]
 
-- [Bagaimana ini mempengaruhi `101_GENESIS_ARCHITECTURE.md`?]
-- [Sistem apa yang harus di-refactor?]
-
-**PELAJARAN (UNTUK AI/DEV BERIKUTNYA):**
-
-- **BOLEH:** [Pola baru yang harus diikuti]
-- **TIDAK BOLEH:** [Pola lama yang sekarang dilarang]
+**REFERENSI DOKUMEN BLUEPRINT:**
+[Daftar file yang telah diperbarui sesuai Hukum #13 (ADR Integration Rule).]
 ```
+
+### Format DEV_LOG (`301_DEV_LOG.md`)
+
+```markdown
+# 🛠️ [TANGGAL YYYY-MM-DD] Sesi Kerja - [JUDUL SINGKAT]
+
+**TANGGAL SESI:** [Tanggal Lengkap]
+**TUJUAN:** [Tujuan sesi kerja (misal: Fix Crash DataManager)]
+**STATUS:** [SELESAI/DIBATALKAN/DALAM PROGRES]
+
+**FILE YANG DIUBAH / DIBUAT:**
+
+- [File 1]
+- [File 2]
+
+**MASALAH (Problem) & SOLUSI:**
+
+- **Problem:** [Masalah]
+- **Root Cause:** [Akar masalah]
+- **Solusi:** [Bagaimana masalah diperbaiki]
+```
+
+---
 
 > END OF ./docs/300_LOGS/README.md

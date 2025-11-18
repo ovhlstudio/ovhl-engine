@@ -1,7 +1,8 @@
 --[[
-OVHL ENGINE V3.0.0 - NETWORKING ROUTER SYSTEM (PATCHED)
-Version: 3.0.1
-FIXES: Added environment checks for remote event connection
+OVHL ENGINE V3.3.0 (FINAL)
+@Component: NetworkingRouter (Core System)
+@Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkingRouter
+@Purpose: (V3.3.0) Menggunakan Two-Phase Init. :Start() untuk koneksi Remotes.
 --]]
 
 local NetworkingRouter = {}
@@ -17,11 +18,16 @@ function NetworkingRouter.new()
     return self
 end
 
+-- FASE 1: Hanya konstruksi
 function NetworkingRouter:Initialize(logger)
     self._logger = logger
+end
+
+-- FASE 2: Aktivasi (Setup Remotes & Connect)
+function NetworkingRouter:Start()
     self:_setupRemotes()
     self:_startMonitoring()
-    self._logger:Info("NETWORKING", "Networking Router initialized")
+    self._logger:Info("NETWORKING", "Networking Router Ready (V3.3.0).")
 end
 
 function NetworkingRouter:_setupRemotes()
@@ -38,7 +44,10 @@ function NetworkingRouter:_setupRemotes()
         remotesFolder = ReplicatedStorage:WaitForChild("OVHL_Remotes", 10)
     end
     
-    if not remotesFolder then return end -- Should handle error better but ok for now
+    if not remotesFolder then 
+        self._logger:Error("NETWORKING", "Gagal menemukan folder OVHL_Remotes!")
+        return 
+    end
 
     if isServer then
         self._remotes = {
@@ -78,10 +87,6 @@ function NetworkingRouter:_getOrCreateRemote(folder, className, name)
     return remote
 end
 
--- ... (Sisa fungsi handler sama seperti sebelumnya, disingkat untuk hemat space script)
--- Asumsikan fungsi _handleClientToServer, _handleServerToClient, dll tetap sama
--- karena logikanya sudah benar, cuma setup init-nya yang salah environment.
-
 function NetworkingRouter:_handleClientToServer(player, route, data)
     local handler = self._handlers[route]
     if handler then pcall(handler, player, data) end
@@ -93,7 +98,6 @@ function NetworkingRouter:_handleServerToClient(route, data)
 end
 
 function NetworkingRouter:_handleRequestResponse(player, route, data)
-    -- Simplified for patch
     local handler = self._handlers[route]
     if handler then 
         local success, res = pcall(handler, player, data)
@@ -116,6 +120,12 @@ function NetworkingRouter:SendToClient(player, route, data)
     self._remotes.ServerToClient:FireClient(player, route, data)
 end
 
-function NetworkingRouter:_startMonitoring() end -- Stubbed for fix
+function NetworkingRouter:_startMonitoring() end -- Stubbed
 
 return NetworkingRouter
+
+--[[
+@End: NetworkingRouter.lua
+@Version: 3.3.0 (Two-Phase Init)
+@See: docs/ADR_V3-3-0.md
+--]]
