@@ -1,3 +1,35 @@
+> START OF ./docs/300_LOGS/301_DEV_LOG.md
+>
+> **OVHL ENGINE V3.4.0** > **STATUS:** MONOLITHIC LOGGING
+> **AUDIENCE:** AI & CORE DEVELOPERS
+> **PURPOSE:** Arsip Sesi Kerja dan Progres Harian.
+
+# 301. Developer Log
+
+# 🛠️ [2025-11-18] Sesi Kerja - Implementasi & Validasi ADR-004
+
+**TANGGAL SESI:** 2025-11-18, 11:30 - 12:05
+**TUJUAN:** Memperbaiki _crash_ kritis V3.3.0 (`DataManager:51`) dan mengimplementasikan arsitektur V3.4.0 (ADR-004).
+**STATUS:** SELESAI
+
+**FILE YANG DIUBAH / DIBUAT:**
+
+- `src/ReplicatedStorage/OVHL/Core/SystemRegistry.lua`
+- `src/ServerScriptService/OVHL/ServerRuntime.server.lua`
+- `src/ReplicatedStorage/OVHL/Systems/Advanced/PlayerManager.lua`
+- `src/ReplicatedStorage/OVHL/Systems/Security/RateLimiter.lua`
+- `docs/100_ENGINE_GUIDES/101_GENESIS_ARCHITECTURE.md` (Standard Code)
+- `docs/300_LOGS/README.md` (Standard Log)
+- `docs/300_LOGS/302_ADR_LOG.md` (Baru)
+
+**MASALAH (Problem) & SOLUSI:**
+
+- **Problem:** _Crash_ `DataManager:51: attempt to index nil with 'Error'`
+- **Root Cause:** _Race condition_ di V3.3.0. `PlayerManager` memanggil `OVHL:GetSystem("DataManager")` di Fase 1 (`Initialize`), tetapi `DataManager` belum terdaftar.
+- **Solusi:** Menerapkan ADR-004. Memindahkan `OVHL:GetSystem()` ke Fase 3 (`Start`) di `PlayerManager.lua`. Validasi playtest **sukses**.
+
+---
+
 # 📚 CATATAN SERAH TERIMA (HAND-OFF) ARSITEK
 
 **UNTUK DIBACA OLEH AI/DEVELOPER BERIKUTNYA:**
@@ -47,3 +79,7 @@ Tugas Anda adalah menyelesaikan refaktor yang gagal ini.
 4.  `WAJIB:` Refactor semua sistem yang "aktif" (seperti `DataManager`, `PlayerManager`, `NetworkingRouter`, `RateLimiter`) untuk memindahkan logika aktivasi mereka dari `:Initialize()` ke fungsi `:Start()` yang baru.
 
 5.  **PERINGATAN DOKUMENTASI:** SSoT (Semua file di `docs/`) **USANG**. SSoT saat ini **TIDAK** mencerminkan arsitektur V3.2.2 (Manifest) atau V3.3.0 (Two-Phase) yang dibutuhkan. **Setelah** _engine_ stabil, Anda **WAJIB** memperbarui `101_GENESIS_ARCHITECTURE.md`, `102_CORE_MECHANICS.md`, dan `202_CONTRIBUTING_SYSTEM.md` agar sesuai dengan arsitektur V3.3.0 yang baru.
+
+---
+
+> END OF ./docs/300_LOGS/301_DEV_LOG.md

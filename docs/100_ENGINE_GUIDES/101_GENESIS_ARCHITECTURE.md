@@ -1,14 +1,12 @@
 > START OF ./docs/100_ENGINE_GUIDES/101_GENESIS_ARCHITECTURE.md
 >
-> **OVHL ENGINE V3.1.0** > **STATUS:** FINAL & AUTHORITATIVE
-> **AUDIENCE:** ENGINE ENGINEERS
-> **PURPOSE:** Blueprint Arsitektur Inti Engine - READ ONLY.
+> **OVHL ENGINE V3.4.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **AUDIENCE:** ENGINE ARCHITECT
+> **PURPOSE:** Definisi Hukum Arsitektural yang Absolut dan Abadi.
 
 ---
 
-# 🏗️ 101_GENESIS_ARCHITECTURE.MD (V3.1.0)
-
-> **PERINGATAN:** Dokumen ini adalah fondasi mutlak (SSoT) untuk membangun dan mengembangkan OVHL Engine. Patuhi setiap detailnya.
+# 📜 101_GENESIS_ARCHITECTURE.MD (The Core Law)
 
 ---
 
@@ -24,15 +22,16 @@
 8.  **No `init.lua`:** Dilarang keras menggunakan file bernama `init.lua`. Gunakan nama deskriptif (`Bootstrap.lua`, `Kernel.lua`).
 9.  **Explicit Paths:** Gunakan `game:GetService` atau path traversal eksplisit. Dilarang `script.Parent` berlebihan.
 10. **Luau Compatibility:** Gunakan sintaks Luau yang valid (misal: `table.size` tidak ada).
-11. **[BARU V3.1.0] Standar Header Kode:** Semua file `.lua` wajib menyertakan blok Header V3.1.0 (`@Component:`, `@Path:`, `@Purpose:`).
-12. **[BARU V3.1.0] Standar Footer Kode:** Semua file `.lua` wajib menyertakan blok Footer V3.1.0 (`@End:`, `@Version:`, `@See:`).
-13. **[BARU V3.1.0] Demarkasi Networking:** Gunakan **Knit Networking** (`Service.Client:Method()`) untuk semua komunikasi Modul-ke-Modul. Gunakan **OVHL Networking** (`NetworkingRouter`) HANYA untuk komunikasi Sistem-ke-Sistem (level engine) atau jika Pola Adapter membutuhkannya.
+11. **Mandatory Code Header V3.4.0:** Semua file `.lua` wajib menyertakan blok Header V3.4.0 (`@Component:`, `@Path:`, `@Purpose:`).
+12. **Mandatory Code Footer V3.4.0:** Semua file `.lua` wajib menyertakan blok Footer V3.4.0 (`@End:`, `@Version:`, `@See:`).
+13. **ADR Integration Rule:** Semua keputusan arsitektural yang dicatat dalam `302_ADR_LOG.md` wajib diintegrasikan (dikutip, diringkas, atau dijelaskan) ke dalam dokumen _blueprint_ terkait (di folder `100_ENGINE_GUIDES/` dan `200_USER_GUIDES/`).
+14. **Demarkasi Networking:** Gunakan **Knit Networking** (`Service.Client:Method()`) untuk semua komunikasi Modul-ke-Modul. Gunakan **OVHL Networking** (`NetworkingRouter`) HANYA untuk komunikasi Sistem-ke-Sistem (level engine) atau jika Pola Adapter membutuhkannya.
 
 ---
 
-## 2. STRUKTUR DIREKTORI PRODUKSI (V3.1.0)
+## 2. STRUKTUR DIREKTORI PRODUKSI (V3.4.0)
 
-(Struktur ini sesuai dengan `snapshot-20251118_071230.md`)
+(Struktur ini sesuai dengan `snapshot-20251118_113010.md`)
 
 ```text
 src/
@@ -75,7 +74,7 @@ src/
 
 ---
 
-## 3. TECHNOLOGY STACK (VERSI BAKU V3.1.0)
+## 3. TECHNOLOGY STACK (VERSI BAKU V3.4.0)
 
 - **Framework:** [Knit (v1.7.0+)](https://sleitnick.github.io/Knit/)
 - **UI Library:** [Fusion (v0.3.0)](https://elttob.uk/Fusion/)
@@ -87,7 +86,7 @@ src/
 ## 4. SISTEM INTI (CORE SYSTEMS)
 
 - **Smart Bootstrap (`Core/Bootstrap.lua`):** Auto-discovery sistem di `Systems/`. Dependensi di-hardcode di file ini untuk SSoT load order.
-- **System Registry (`Core/SystemRegistry.lua`):** Melakukan _Topological Sort_ untuk mengurutkan sistem berdasarkan dependensi.
+- **System Registry (`Core/SystemRegistry.lua`):** Melakukan _Topological Sort_ untuk mengurutkan sistem berdasarkan dependensi. **Mengimplementasikan Lifecycle 4-Fase (ADR-004)**.
 - **Security Layer (`Systems/Security/`):** `InputValidator` (Schema), `RateLimiter` (Spam), `PermissionCore` (Rank).
 
 ---
@@ -187,9 +186,9 @@ tests/
 
 ---
 
-## 11. DOCUMENTATION STANDARDS (V3.1.0)
+## 11. DOCUMENTATION STANDARDS (V3.4.0)
 
-- **Standar Kode:** Standar Header/Footer V3.1.0 (Hukum #11 dan #12) menggantikan format LuaDoc lama.
+- **Standar Kode:** Standar Header/Footer V3.4.0 (Hukum #11 dan #12) menggantikan format LuaDoc lama.
 - **Dokumentasi Gameplay:** Modul _gameplay_ wajib didokumentasikan di `201_CONTRIBUTING_MODULE.md`.
 - **Dokumentasi Engine:** _Sistem_ engine wajib memiliki file API-nya sendiri di `210_API_REFERENCE/`.
 

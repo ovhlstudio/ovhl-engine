@@ -1,32 +1,28 @@
 > START OF ./docs/200_USER_GUIDES/202_CONTRIBUTING_SYSTEM.md
 >
-> **OVHL ENGINE V3.1.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **OVHL ENGINE V3.4.0** > **STATUS:** FINAL & AUTHORITATIVE
 > **AUDIENCE:** ENGINE ENGINEERS, CORE DEVELOPERS
-> **PURPOSE:** Panduan teknis untuk menambahkan **Sistem Engine** baru (misal: DataManager, SoundManager) ke dalam OVHL Core.
+> **PURPOSE:** Panduan teknis untuk menambahkan **Sistem Engine** baru (misal: DataManager, SoundManager) ke dalam OVHL Core, sesuai Lifecycle V3.4.0.
 
 ---
 
-# 🛠️ 202_CONTRIBUTING_SYSTEM.MD
+# 🛠️ 202_CONTRIBUTING_SYSTEM.MD (V3.4.0)
 
-> **REFERENSI:** Dokumen ini menggabungkan dan menggantikan `01a_ARCHITECTURE_SYSTEMS.md` dan `03_CONTRIBUTING.md`.
+> **REFERENSI:** Dokumen ini telah diperbarui untuk mencerminkan **Lifecycle 4-Fase (ADR-004)**.
 
 ---
 
 ## 1. ⚠️ ATURAN EMAS (FILOSOFI)
 
-Sebelum membuat file, pahami perbedaan fundamental ini:
+Pahami perbedaan fundamental ini:
 
 1.  **Knit Service (`Modules/`) = Logika Gameplay.**
 
     - Tujuannya adalah _fitur_ (Inventory, Shop, Quest).
-    - Dibuat oleh _Gameplay Programmers_.
-    - Menggunakan `Knit.CreateService`.
     - Dipindai oleh `Kernel.lua`.
 
 2.  **OVHL System (`Systems/`) = Utilitas/Teknologi.**
     - Tujuannya adalah _kemampuan_ (Logger, Validator, DataManager).
-    - Dibuat oleh _Engine Engineers_.
-    - Menggunakan pola Class `ModuleScript.new()`.
     - Dipindai oleh `Bootstrap.lua`.
 
 **JANGAN TERTUKAR!**
@@ -35,7 +31,7 @@ Sebelum membuat file, pahami perbedaan fundamental ini:
 
 ## 2. LANGKAH IMPLEMENTASI (Contoh: `DataManager`)
 
-Sistem OVHL bersifat **Auto-Discovery**. Cukup buat file di folder yang tepat dan daftarkan dependensinya.
+Sistem OVHL bersifat **Auto-Discovery** (via `*Manifest.lua`).
 
 ### Langkah 1: Tentukan Kategori
 
@@ -50,76 +46,123 @@ Pilih folder di `src/ReplicatedStorage/OVHL/Systems/`:
 
 ### Langkah 2: Template System
 
-Buat `ModuleScript` baru (misal: `DataManager.lua`) menggunakan template V3.1.0.
+Buat `ModuleScript` baru (misal: `DataManager.lua`) menggunakan template V3.4.0.
 
 ```lua
 --[[
-OVHL ENGINE V3.1.0
-@Component: DataManager (Core System)
-@Path: ReplicatedStorage.OVHL.Systems.Advanced.DataManager
-@Purpose: Menyediakan API DataStore terpusat untuk semua Modul Gameplay.
+OVHL ENGINE V3.4.0
+@Component: MyNewSystem (Core System)
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.MyNewSystem
+@Purpose: Templat untuk sistem baru.
 --]]
 
-local DataManager = {}
-DataManager.__index = DataManager
+local MySystem = {}
+MySystem.__index = MySystem
 
-function DataManager.new()
-    local self = setmetatable({}, DataManager)
+function MySystem.new()
+    local self = setmetatable({}, MySystem)
     self._logger = nil
+    self._connections = {} -- Wajib: untuk Disconnect
+    self._isRunning = false -- Wajib: untuk task.spawn cleanup
     return self
 end
 
--- [WAJIB] Method ini akan dipanggil otomatis oleh Bootstrap
-function DataManager:Initialize(logger)
-    self._logger = logger
-    self._logger:Info("DATAMANAGER", "Data Manager Ready")
-end
+-- [...] (LANJUTKAN DENGAN IMPLEMENTASI FUNGSI 4-FASE DI BAWAH)
 
-function DataManager:LoadData(player)
-    -- Logika DataStore Anda di sini
-    self._logger:Debug("DATAMANAGER", "Loading data...", {player = player.Name})
-    print("Data loaded!")
-end
-
-return DataManager
+return MySystem
 
 --[[
-@End: DataManager.lua
-@Version: 3.1.0
+@End: MyNewSystem.lua
+@Version: 3.4.0
 @See: docs/200_USER_GUIDES/202_CONTRIBUTING_SYSTEM.md
 --]]
 ```
 
 ### Langkah 3: Daftarkan Dependensi (KRITIS!)
 
-Sistem baru tidak akan tahu urutan load-nya kecuali diberi tahu.
-Buka `src/ReplicatedStorage/OVHL/Core/Bootstrap.lua` dan edit tabel `systemDependencies`:
+Buat file `MyNewSystemManifest.lua` di sebelah `MyNewSystem.lua` untuk deklarasi dependensi dan konteks.
 
 ```lua
--- Di dalam Bootstrap.lua
-local systemDependencies = {
-    ConfigLoader = {}, -- [CONTOH] Tidak ada dependensi
-    SmartLogger = {"ConfigLoader"}, -- [CONTOH] Butuh ConfigLoader
-    InputValidator = {"SmartLogger"}, -- [CONTOH] Butuh SmartLogger
-
-    -- [BARU] Tambahkan sistem barumu di sini:
-    DataManager = {"SmartLogger", "ConfigLoader"}
-    -- Artinya: DataManager baru akan start SETELAH Logger & Config siap.
+-- MyNewSystemManifest.lua
+return {
+	name = "MyNewSystem",
+	dependencies = { "SmartLogger", "DependencyLain" },
+	context = "Shared" -- Server, Client, atau Shared
 }
 ```
 
-### Langkah 4: Selesai!
+---
 
-Bootstrap sekarang akan otomatis:
+## 3. MANDATORY FUNCTIONS (V3.4.0 Lifecycle)
 
-1.  Scan file `DataManager.lua`.
-2.  Cek dependency-nya (`SmartLogger`, `ConfigLoader`).
-3.  Load dan Initialize `DataManager` pada urutan yang benar.
-4.  Mendaftarkannya sehingga bisa diakses via `OVHL:GetSystem("DataManager")`.
+Semua Sistem harus mendefinisikan fungsi-fungsi berikut untuk berinteraksi dengan **SystemRegistry**.
+
+### A. System:Initialize(logger) (Fase 1: Konstruksi)
+
+Ini adalah fase pertama dari bootup. Sistem Anda hanya boleh menerima referensi logger dan menyiapkan variabel lokal.
+
+**MANDAT TUGAS:**
+
+1.  Simpan logger: `self._logger = logger`.
+2.  Siapkan variabel.
+
+**MANDAT LARANGAN:**
+
+1.  **DILARANG KERAS** memanggil `OVHL:GetSystem()`.
+2.  **DILARANG KERAS** menghubungkan event (misalnya `game.Players.PlayerAdded:Connect()`).
+3.  **DILARANG KERAS** memulai _loop_ `task.spawn()` atau tugas asinkron lainnya.
+
+### B. System:Start() (Fase 3: Aktivasi)
+
+Ini adalah fase aktivasi. Semua dependensi sistem dijamin sudah terdaftar di `OVHL` (melalui Fase 2).
+
+**MANDAT TUGAS:**
+
+1.  **Resolusi Dependensi:** Panggil `OVHL:GetSystem("Dependency")`.
+2.  **Koneksi Event:** Hubungkan semua _event_ (misalnya `Players.PlayerAdded:Connect()`). Simpan koneksi di `self._connections`.
+3.  **Mulai Task:** Jalankan _loop_ atau tugas background. Gunakan _flag_ `self._isRunning`.
+
+```lua
+function MySystem:Start()
+    local OVHL = require(script.Parent.Parent.Parent.Core.OVHL)
+    self._dataManager = OVHL:GetSystem("DataManager") -- AMAN di Fase 3
+
+    self._isRunning = true
+    self:_startCleanupTask() -- task.spawn(while self._isRunning do...
+
+    self.Connections.PlayerAdded = Players.PlayerAdded:Connect(self.OnPlayerAdded)
+end
+```
+
+### C. System:Destroy() (Fase 4: Cleanup/Shutdown)
+
+**Fungsi ini WAJIB diimplementasikan** jika sistem Anda menggunakan `Connect()` atau `task.spawn()`. Dipanggil oleh `SystemRegistry` saat `game:BindToClose()`.
+
+**MANDAT TUGAS:**
+
+1.  **Stop Tasks:** Gunakan _flag_ `self._isRunning = false` untuk menghentikan semua `task.spawn()` _loop_ Anda.
+2.  **Final Save:** Jika Anda adalah _Data Manager_, pastikan semua data tersimpan.
+3.  **Disconnect:** Putuskan semua koneksi event yang tersimpan di `self._connections`.
+
+```lua
+-- Contoh wajib untuk PlayerManager atau RateLimiter:
+function MySystem:Destroy()
+    self._logger:Info("SYSTEM", "Menjalankan Fase 4: Cleanup.")
+
+    -- 1. Hentikan loop task.spawn
+    self._isRunning = false
+
+    -- 2. Disconnect semua koneksi event
+    for name, conn in pairs(self._connections) do
+        conn:Disconnect()
+        self._connections[name] = nil
+    end
+end
+```
 
 ---
 
-## 3. INTEGRASI DENGAN KNIT SERVICE
+## 4. INTEGRASI DENGAN KNIT SERVICE
 
 Cara **Modul Gameplay (Knit)** menggunakan **Sistem Engine (OVHL)** yang baru Anda buat.
 
@@ -127,9 +170,10 @@ Cara **Modul Gameplay (Knit)** menggunakan **Sistem Engine (OVHL)** yang baru An
 -- Di dalam InventoryService.lua
 function InventoryService:KnitInit()
     -- 1. Dapatkan API Gateway
-    self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
+    self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
 
     -- 2. Panggil Sistem (Bukan Service)
+    -- Knit Init aman karena OVHL sudah stabil sejak Fase 2.
     self.DataManager = self.OVHL:GetSystem("DataManager")
 end
 
