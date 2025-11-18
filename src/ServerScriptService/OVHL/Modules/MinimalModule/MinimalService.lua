@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: MinimalService (Module)
+@Path: ServerScriptService.OVHL.Modules.MinimalModule.MinimalService
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE SERVER SERVICE (CLEAN)
 Version: 3.0.5
 Path: ServerScriptService.OVHL.Modules.MinimalModule.MinimalService
@@ -104,3 +112,11 @@ function MinimalService.Client:GetData(player)
 end
 
 return MinimalService
+
+--[[
+@End: MinimalService.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

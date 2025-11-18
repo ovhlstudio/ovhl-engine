@@ -1,185 +1,483 @@
 > START OF ./docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
 >
-> **OVHL ENGINE V3.1.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **OVHL ENGINE V1.0.0** > **STATUS:** FINAL & AUTHORITATIVE
 > **AUDIENCE:** GAMEPLAY PROGRAMMERS, USERS
-> **PURPOSE:** "Cookbook" dan "Golden Standard" untuk membuat **Modul Gameplay** baru (misal: Shop, Inventory) menggunakan Knit.
+> **PURPOSE:** "Cookbook" dan "Golden Standard" untuk membuat Modul Gameplay baru menggunakan Knit + OVHL pattern.
 
 ---
 
-# 🍳 201_CONTRIBUTING_MODULE.MD
+# 🍳 201_CONTRIBUTING_MODULE.md (V1.0.0)
 
-> **REFERENSI:** Dokumen ini di-bootstrap dari `01_MODULE_COOKBOOK.md` dan `06_MODULE_CREATION.md`.
+> **CATATAN:** Dokumen ini adalah template + guide untuk membuat modul baru yang patuh OVHL patterns.
+> **Reference:** Lihat `MinimalModule` di snapshot sebagai contoh lengkap.
 
 ---
 
-## 1. PERSIAPAN
+## 1. KONSEP DASAR
 
-Copy folder `MinimalModule` dan rename sesuai fitur baru lu (misal: `Inventory`).
-Struktur ini (Pola Minimal) sudah benar dan mencerminkan SSoT 3-Config:
+### **Apa itu Modul?**
 
-```text
-Modules/Inventory/
+Modul adalah **fitur gameplay** (Shop, Inventory, Quest, etc) yang dibuat dengan Knit Service/Controller pattern.
+
+**Bukan:** Sistem engine (bukan Logger, bukan DataManager, dll)
+
+**Struktur:**
+
+```
+Modules/[ModuleName]/
+├── Shared/
+│   └── SharedConfig.lua          # Kontrak: schema, izin, rate limit
 ├── Server/
-│   ├── InventoryService.lua      (Server Logic)
-│   └── ServerConfig.lua          (Config Rahasia)
-├── Client/
-│   ├── InventoryController.lua   (Client Logic & UI)
-│   └── ClientConfig.lua          (Config Preferensi)
-└── Shared/
-    └── SharedConfig.lua          (Config Kontrak)
+│   ├── [Name]Service.lua         # Business logic server
+│   └── ServerConfig.lua          # Rahasia: API keys, db creds
+└── Client/
+    ├── [Name]Controller.lua      # Logic client + UI
+    └── ClientConfig.lua          # Preferensi: keybinds, theme
+```
+
+### **3-Config Pattern**
+
+Setiap modul wajib punya 3 file config yang di-merge secara layered:
+
+1. **SharedConfig.lua** (ReplicatedStorage)
+
+   - Accessible: Both client + server
+   - Isi: Kontrak data, schema validasi, permission rules, rate limits
+   - Public: TIDAK ada secret data di sini
+
+2. **ServerConfig.lua** (ServerScriptService)
+
+   - Accessible: Server only
+   - Isi: API keys, database credentials, secret settings
+   - Hidden: Tidak replicated ke client
+
+3. **ClientConfig.lua** (StarterPlayer)
+   - Accessible: Client only
+   - Isi: Keybinds, UI theme, visual preferences
+   - Local: Player-specific settings
+
+**Resolution order:**
+
+```
+Engine config (global)
+    ↓
+SharedConfig (modul public)
+    ↓
+ServerConfig / ClientConfig (layered overrides)
+    ↓
+Final merged config
 ```
 
 ---
 
-## 2. CONTOH LENGKAP: INVENTORY MODULE (POLA MINIMAL)
+## 2. EXAMPLE: INVENTORY MODULE (MINIMAL PATTERN)
 
-### A. Shared Config (`Shared/SharedConfig.lua`)
+Copy structure dari `MinimalModule`, rename ke `InventoryModule`.
 
-Definisikan aturan data dan permission di sini.
+### **A. SharedConfig.lua** (Kontrak)
 
 ```lua
 --[[
-OVHL ENGINE V3.1.0
-@Component: Inventory (Shared Config)
+OVHL ENGINE V1.0.0
+@Component: InventoryModule (Shared Config)
 @Path: ReplicatedStorage.OVHL.Shared.Modules.Inventory.SharedConfig
-@Purpose: Kontrak data, schema validasi, dan izin dasar.
+@Purpose: Kontrak data, schema validasi, permission rules
+@Stability: STABLE
 --]]
 
 return {
+    ModuleName = "InventoryModule",
+    Version = "1.0.0",
+    Author = "Game Team",
+    Enabled = true,
+
+    -- UI configuration
+    UI = {
+        DefaultMode = "FUSION",
+        Screens = {
+            MainUI = { Mode = "FUSION", FallbackMode = "NATIVE" },
+            EquipUI = { Mode = "FUSION", FallbackMode = "NATIVE" }
+        },
+        Topbar = {
+            Enabled = true,
+            Icon = "rbxassetid://1234567890",
+            Text = "Inventory"
+        }
+    },
+
+    -- Security & Validation
     Security = {
-        -- SCHEMA: Bentuk data yang valid dari Client
+        -- Input validation schemas
         ValidationSchemas = {
             EquipRequest = {
                 type = "table",
                 fields = {
-                    itemId = { type = "string", min = 1 },
+                    itemId = { type = "string", min = 1, max = 50 },
                     slotId = { type = "number", min = 1, max = 10 }
+                }
+            },
+            DropRequest = {
+                type = "table",
+                fields = {
+                    itemId = { type = "string", min = 1 },
+                    quantity = { type = "number", min = 1, max = 999 }
                 }
             }
         },
-        -- RATE LIMIT: Cegah spam click
+
+        -- Rate limiting per action
         RateLimits = {
-            Equip = { max = 2, window = 1 } -- Max 2x per detik
+            Equip = { max = 5, window = 1 },      -- 5x per detik
+            Drop = { max = 10, window = 60 },      -- 10x per menit
+            Move = { max = 20, window = 60 }       -- 20x per menit
         }
     },
 
-    -- PERMISSION: Siapa yang boleh akses?
+    -- HD Admin style permissions
     Permissions = {
-        EquipItem = { Rank = "NonAdmin" } -- Semua player (0)
+        Equip = { Rank = "NonAdmin", Description = "Equip items" },
+        Drop = { Rank = "NonAdmin", Description = "Drop items" },
+        Admin_ClearInventory = { Rank = "Admin", Description = "Admin: clear inventory" }
     }
 }
 
 --[[
 @End: SharedConfig.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: Game Team
 --]]
 ```
 
-### B. Server Service (`Server/InventoryService.lua`)
-
-Logika utama dengan tembok keamanan berlapis.
+### **B. ServerConfig.lua** (Rahasia)\*\*
 
 ```lua
 --[[
-OVHL ENGINE V3.1.0
-@Component: InventoryService (Minimal)
-@Path: ServerScriptService.OVHL.Modules.Inventory.InventoryService.lua
-@Purpose: Menerima request dari Client dan menerapkan 3 pilar keamanan.
+OVHL ENGINE V1.0.0
+@Component: InventoryModule (Server Config)
+@Path: ServerScriptService.OVHL.Modules.Inventory.ServerConfig
+@Purpose: Secret config - API keys, database credentials
+@Stability: STABLE
+--]]
+
+return {
+    -- Server-only settings (jangan exposed ke client)
+    DebugMode = false,
+
+    -- Database
+    DataStore = {
+        Name = "PlayerInventory_v1",
+        Scope = "global"
+    },
+
+    -- External APIs
+    ItemDatabase = {
+        Endpoint = "https://api.example.com/items",
+        APIKey = "secret_key_xyz123"
+    },
+
+    -- Performance
+    MaxInventorySlots = 50,
+    SaveInterval = 300  -- Detik
+}
+
+--[[
+@End: ServerConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: Game Team
+--]]
+```
+
+### **C. ClientConfig.lua** (Preferensi)\*\*
+
+```lua
+--[[
+OVHL ENGINE V1.0.0
+@Component: InventoryModule (Client Config)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.Inventory.ClientConfig
+@Purpose: Client preferences - keybinds, UI theme
+@Stability: STABLE
+--]]
+
+return {
+    -- UI Theme
+    Theme = "Dark",
+    AnimationDuration = 0.3,
+
+    -- Input keybinds
+    Input = {
+        Keybinds = {
+            ToggleInventory = Enum.KeyCode.I,
+            DropItem = Enum.KeyCode.X,
+            SearchInventory = Enum.KeyCode.F
+        }
+    },
+
+    -- Visual
+    InventoryGridColumns = 5,
+    ShowItemTooltips = true,
+    UseCustomCursor = false
+}
+
+--[[
+@End: ClientConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: Game Team
+--]]
+```
+
+### **D. InventoryService.lua** (Server Logic)\*\*
+
+```lua
+--[[
+OVHL ENGINE V1.0.0
+@Component: InventoryService (Knit Service)
+@Path: ServerScriptService.OVHL.Modules.Inventory.InventoryService
+@Purpose: Server-side inventory logic + 3-pilar security
+@Stability: STABLE
 --]]
 
 local Knit = require(game.ReplicatedStorage.Packages.Knit)
-local InventoryService = Knit.CreateService { Name = "InventoryService", Client = {} }
 
+local InventoryService = Knit.CreateService {
+    Name = "InventoryService",
+    Client = {}
+}
+
+-- FASE 1: KnitInit (Resolve dependencies)
 function InventoryService:KnitInit()
     self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
+    self.Logger = self.OVHL:GetSystem("SmartLogger")
+    self.Config = self.OVHL:GetConfig("InventoryModule", nil, "Server")
+
+    -- Get systems
     self.InputValidator = self.OVHL:GetSystem("InputValidator")
     self.RateLimiter = self.OVHL:GetSystem("RateLimiter")
-    self.Permission = self.OVHL:GetSystem("PermissionCore")
-    self.Logger = self.OVHL:GetSystem("SmartLogger")
+    self.PermissionCore = self.OVHL:GetSystem("PermissionCore")
+    self.DataManager = self.OVHL:GetSystem("DataManager")
+
+    self.Logger:Info("SERVICE", "InventoryService initialized", {
+        module = self.Config.ModuleName
+    })
 end
 
--- Client Method (Jembatan)
+-- FASE 2: KnitStart (Start logic)
+function InventoryService:KnitStart()
+    self.Logger:Info("SERVICE", "InventoryService started")
+end
+
+-- ============= CLIENT METHOD =============
+
+-- Entry point dari client
 function InventoryService.Client:Equip(player, data)
     return self.Server:ProcessEquip(player, data)
 end
 
--- Server Method (Secure Logic)
+-- ============= SECURITY PIPELINE =============
+
+-- [1] Validasi input
+-- [2] Rate limit check
+-- [3] Permission check
+-- [4] Execute logic
+
 function InventoryService:ProcessEquip(player, data)
-    -- 1. VALIDASI INPUT (Schema Check)
-    local valid, err = self.InputValidator:Validate("EquipRequest", data)
+    local startTime = os.clock()
+
+    -- 1. INPUT VALIDATION
+    local valid, validationErr = self.InputValidator:Validate("EquipRequest", data)
     if not valid then
-        self.Logger:Warn("SECURITY", "Bad Input", {player=player.Name, err=err})
-        return false
+        self.Logger:Warn("SECURITY", "Validation failed", {
+            player = player.Name,
+            error = validationErr
+        })
+        return false, validationErr
     end
 
-    -- 2. CEK RATE LIMIT (Spam Check)
-    if not self.RateLimiter:Check(player, "Equip") then return false end
+    -- 2. RATE LIMIT
+    if not self.RateLimiter:Check(player, "Equip") then
+        self.Logger:Warn("SECURITY", "Rate limit exceeded", {
+            player = player.Name,
+            action = "Equip"
+        })
+        return false, "Too many requests"
+    end
 
-    -- 3. CEK PERMISSION (Rank Check)
-    if not self.Permission:Check(player, "InventoryModule.EquipItem") then return false end
+    -- 3. PERMISSION
+    local permNode = "InventoryModule.Equip"
+    if not self.PermissionCore:Check(player, permNode) then
+        self.Logger:Warn("SECURITY", "Permission denied", {
+            player = player.Name,
+            permission = permNode
+        })
+        return false, "No permission"
+    end
 
-    -- 4. GAMEPLAY LOGIC
-    self.Logger:Info("GAME", "Item Equipped", {player=player.Name, item=data.itemId})
-    return true
+    -- 4. EXECUTE BUSINESS LOGIC
+    local success, result = self:_executeEquip(player, data.itemId, data.slotId)
+
+    self.Logger:Performance("TIMING", "Equip processed", {
+        duration = os.clock() - startTime,
+        player = player.Name,
+        success = success
+    })
+
+    return success, result
+end
+
+function InventoryService:_executeEquip(player, itemId, slotId)
+    -- Actual logic here
+    self.Logger:Debug("BUSINESS", "Equip item", {
+        player = player.Name,
+        itemId = itemId,
+        slotId = slotId
+    })
+
+    -- Contoh: update player data via DataManager
+    local playerData = self.DataManager:GetCachedData(player)
+    if not playerData then
+        return false, "Player data not found"
+    end
+
+    -- Logic untuk equip item
+    playerData.equippedItems = playerData.equippedItems or {}
+    playerData.equippedItems[slotId] = itemId
+
+    return true, "Item equipped"
 end
 
 return InventoryService
 
 --[[
 @End: InventoryService.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: Game Team
 --]]
 ```
 
-### C. Client Controller (`Client/InventoryController.lua`)
-
-Logika UI dan Input.
+### **E. InventoryController.lua** (Client Logic)\*\*
 
 ```lua
 --[[
-OVHL ENGINE V3.1.0
-@Component: InventoryController (Minimal)
-@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.Inventory.InventoryController.lua
-@Purpose: Mengelola UI dan mengirim request ke Server Service.
+OVHL ENGINE V1.0.0
+@Component: InventoryController (Knit Controller)
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.Inventory.InventoryController
+@Purpose: Client-side inventory UI + networking
+@Stability: STABLE
 --]]
 
 local Knit = require(game.ReplicatedStorage.Packages.Knit)
+
 local InventoryController = Knit.CreateController { Name = "InventoryController" }
 
+-- FASE 1: KnitInit (Get references)
 function InventoryController:KnitInit()
     self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
     self.Logger = self.OVHL:GetSystem("SmartLogger")
+    self.Config = self.OVHL:GetClientConfig("InventoryModule")
+
     self.UIEngine = self.OVHL:GetSystem("UIEngine")
-    self.Config = self.OVHL:GetClientConfig("Inventory")
+    self.UIManager = self.OVHL:GetSystem("UIManager")
+    self.AssetLoader = self.OVHL:GetSystem("AssetLoader")
+
     self.Service = Knit.GetService("InventoryService")
+
+    self.Logger:Info("CONTROLLER", "InventoryController initialized")
 end
 
+-- FASE 2: KnitStart (Setup UI + input)
 function InventoryController:KnitStart()
-    -- Buka UI saat start
     self:SetupUI()
+    self:SetupInput()
+    self:SetupTopbar()
+
+    self.Logger:Info("CONTROLLER", "InventoryController started")
 end
 
 function InventoryController:SetupUI()
-    -- Create UI via Fusion Engine
-    self.UIEngine:CreateScreen("InventoryUI", self.Config)
+    if not self.UIEngine then return end
+
+    local success, mainScreen = pcall(function()
+        return self.UIEngine:CreateScreen("MainUI", self.Config)
+    end)
+
+    if success and mainScreen then
+        self._mainScreen = mainScreen
+        if self.UIManager then
+            self.UIManager:RegisterScreen("MainUI", mainScreen)
+            self:_setupUIComponents(mainScreen)
+        end
+        self.Logger:Info("UI", "Inventory UI created")
+    else
+        self.Logger:Error("UI", "Failed to create UI", { error = tostring(mainScreen) })
+    end
 end
 
-function InventoryController:RequestEquip(id)
-    -- Kirim data sebagai TABLE (Sesuai Schema)
+function InventoryController:_setupUIComponents(screen)
+    if not screen or not self.UIManager then return end
+
+    -- Find equip button
+    local equipBtn = self.UIManager:FindComponent("MainUI", "EquipButton")
+    if equipBtn then
+        self.UIManager:BindEvent(equipBtn, "Activated", function()
+            self:RequestEquipItem(123, 1)  -- Example item
+        end)
+    end
+end
+
+function InventoryController:SetupInput()
+    if not self.AssetLoader or not self.Config or not self.Config.Input then return end
+
+    local kb = self.Config.Input.Keybinds
+    if kb then
+        -- Toggle inventory dengan tombol I
+        if kb.ToggleInventory then
+            self.AssetLoader:RegisterKeybind(kb.ToggleInventory, function()
+                self:ToggleInventory()
+            end, { triggerOnPress = true })
+        end
+    end
+end
+
+function InventoryController:SetupTopbar()
+    if self.UIManager then
+        self.UIManager:SetupTopbar("InventoryModule", self.Config)
+    end
+end
+
+function InventoryController:ToggleInventory()
+    if self.UIManager then
+        self.UIManager:ToggleScreen("MainUI")
+    end
+end
+
+function InventoryController:RequestEquipItem(itemId, slotId)
+    if not self.Service then return end
+
+    -- Kirim request ke server (dengan data TABLE untuk validasi)
     self.Service:Equip({
-        itemId = id,
-        slotId = 1
-    })
+        itemId = itemId,
+        slotId = slotId
+    }):andThen(function(success, result)
+        if success then
+            self.Logger:Info("ACTION", "Item equipped", { itemId = itemId })
+        else
+            self.Logger:Warn("ACTION", "Equip failed", { error = result })
+        end
+    end):catch(function(err)
+        self.Logger:Error("ACTION", "Network error", { error = tostring(err) })
+    end)
 end
 
 return InventoryController
 
 --[[
 @End: InventoryController.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: Game Team
 --]]
 ```
 
@@ -187,191 +485,177 @@ return InventoryController
 
 ## 3. POLA MODUL KOMPLEKS (SCALABLE PATTERN)
 
-`MinimalModule` bagus untuk fitur sederhana. Tapi bagaimana jika `InventoryService` Anda perlu mengurus _Equip_, _Trade_, _Drop_, dan _Stacking_? File Anda akan melebihi "300 Line Limit" (Hukum #9 di `101_GENESIS_ARCHITECTURE.md`).
+Jika modul lu **BESAR** (300+ lines per file), gunakan **Facade Pattern**:
 
-Untuk ini, kita gunakan **Pola Fasad (Facade Pattern)**.
-
-### A. Struktur Folder Modul Kompleks
-
-Struktur ini **mempertahankan** pola 3-Config SSoT V3.1.0.
-
-```text
-Modules/Inventory/
+```
+Modules/Shop/
+├── Shared/
+│   └── SharedConfig.lua
 ├── Server/
-│   ├── InventoryService.lua      # Fasad Keamanan (Knit Service)
-│   ├── ServerConfig.lua          # [WAJIB] Config Rahasia (API Keys, dll)
-│   └── Internal/                 # Folder Logika Bisnis
-│       ├── EquipHandler.lua      # Modul logic equip
-│       ├── TradeManager.lua      # Modul logic trade
-│       └── ItemDataManager.lua   # Modul logic stacking, moving
-│
-├── Client/
-│   ├── InventoryController.lua   # Fasad UI (Knit Controller)
-│   ├── ClientConfig.lua          # [WAJIB] Config Preferensi (Keybinds, dll)
-│   └── Views/                    # Folder Logika UI
-│       ├── BackpackView.lua      # Modul logic untuk render backpack
-│       └── EquipmentView.lua     # Modul logic untuk UI equip
-│
-└── Shared/
-    └── SharedConfig.lua          # [WAJIB] Config Kontrak (Schema, Izin)
+│   ├── ShopService.lua          # Fasad (thin layer)
+│   ├── ServerConfig.lua
+│   └── Internal/
+│       ├── PriceCalculator.lua
+│       ├── PurchaseHandler.lua
+│       └── InventoryUpdater.lua
+└── Client/
+    ├── ShopController.lua       # Fasad (thin layer)
+    ├── ClientConfig.lua
+    └── Views/
+        ├── ShopDisplayView.lua
+        ├── CartView.lua
+        └── CheckoutView.lua
 ```
 
-### B. Server Service (Fasad)
+**Pattern:**
 
-`InventoryService.lua` sekarang menjadi sangat tipis. Tugasnya hanya **Validasi** dan **Delegasi**.
+- Service/Controller = Fasad (keamanan + delegasi)
+- Internal/ = Business logic murni
+- Views/ = UI logic murni
 
-```lua
---[[
-OVHL ENGINE V3.1.0
-@Component: InventoryService (Complex Facade)
-@Path: ServerScriptService.OVHL.Modules.Inventory.InventoryService.lua
-@Purpose: Fasad Keamanan. Memvalidasi input lalu mendelegasikannya ke Handler Internal.
---]]
+**Benefit:**
 
-local Knit = require(game.ReplicatedStorage.Packages.Knit)
-local InventoryService = Knit.CreateService { Name = "InventoryService", Client = {} }
+- File per-file tetap < 300 lines (maintainable)
+- Logic terpisah dari security (clean)
+- UI terpisah dari networking (testable)
 
-function InventoryService:KnitInit()
-    self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
-    self.Logger = self.OVHL:GetSystem("SmartLogger")
-    self.Config = self.OVHL:GetConfig("Inventory")
+---
 
-    -- Sistem Keamanan
-    self.InputValidator = self.OVHL:GetSystem("InputValidator")
-    self.RateLimiter = self.OVHL:GetSystem("RateLimiter")
-    self.Permission = self.OVHL:GetSystem("PermissionCore")
+## 4. SECURITY CHECKLIST (MANDATORY)
 
-    -- Load modul logika internal kita
-    self.EquipHandler = require(script.Parent.Internal.EquipHandler)
-    self.EquipHandler:Init(self.Logger, self.Config) -- Beri dependensi
-end
+Sebelum launch modul, ensure:
 
--- Client Method (Fasad)
-function InventoryService.Client:Equip(player, data)
-    -- 1. VALIDASI INPUT (Schema: "EquipRequest")
-    local valid, err = self.InputValidator:Validate("EquipRequest", data)
-    if not valid then return false, err end
+- ✅ **SharedConfig.lua** punya ValidationSchemas untuk SEMUA input
+- ✅ **SharedConfig.lua** punya RateLimits untuk SEMUA action
+- ✅ **SharedConfig.lua** punya Permissions untuk SEMUA action
+- ✅ **Service.lua** validate input sebelum execute
+- ✅ **Service.lua** check rate limit sebelum execute
+- ✅ **Service.lua** check permission sebelum execute
+- ✅ **ServerConfig.lua** ada (jangan expose secrets)
+- ✅ **Test di studio:** Click tombol → validate pipeline → baru execute
 
-    -- 2. CEK RATE LIMIT (Action: "Equip")
-    if not self.RateLimiter:Check(player, "Equip") then return false, "Spam" end
+---
 
-    -- 3. CEK PERMISSION (Node: "Inventory.EquipItem")
-    if not self.Permission:Check(player, "InventoryModule.EquipItem") then return false, "No Access" end
+## 5. FAQ (COMMON PATTERNS)
 
-    -- 4. DELEGASI LOGIKA
-    return self.EquipHandler:Process(player, data.itemId, data.slotId)
-end
+### **Q: Gimana kalau modul butuh **shared logic** (bukan config)?**
 
-return InventoryService
+**A:** Buat folder `Shared/Internal/`:
 
---[[
-@End: InventoryService.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
---]]
+```
+Modules/Shop/Shared/Internal/
+├── PriceConstants.lua          # Shared constants
+└── ItemDatabase.lua            # Shared item data
 ```
 
-### C. Server Logic (Internal)
-
-File `Internal/EquipHandler.lua` berisi logika "kotor"-nya.
+Load dari client + server:
 
 ```lua
---[[
-OVHL ENGINE V3.1.0
-@Component: EquipHandler (Internal Logic)
-@Path: ServerScriptService.OVHL.Modules.Inventory.Internal.EquipHandler.lua
-@Purpose: Berisi logika bisnis murni untuk equip. Dipanggil oleh Fasad.
---]]
-
-local EquipHandler = {}
-
-function EquipHandler:Init(logger, config)
-    self.Logger = logger
-    self.Config = config -- Menerima config gabungan
-
-    -- Kita bisa akses config rahasia server di sini
-    self.SomeSecretValue = self.Config.API.APIKey -- (Contoh dari ServerConfig.lua)
-end
-
-function EquipHandler:Process(player, itemId, slotId)
-    -- Di sinilah 300 baris logika equip Anda berada.
-    self.Logger:Info("EQUIP", "Equip logic processed", {player = player.Name, item = itemId})
-    -- ...
-    return true
-end
-
-return EquipHandler
-
---[[
-@End: EquipHandler.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
---]]
+local ItemDB = require(script.Parent.Parent.Shared.Internal.ItemDatabase)
 ```
 
-### D. Client Controller (Fasad)
+### **Q: Gimana kalau modul perlu **DataManager** access?**
 
-`InventoryController.lua` juga hanya bertugas sebagai jembatan dan _state manager_.
+**A:** Di service:
 
 ```lua
---[[
-OVHL ENGINE V3.1.0
-@Component: InventoryController (Complex Facade)
-@Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.Inventory.InventoryController.lua
-@Purpose: Fasad UI. Mendelegasikan rendering ke Views.
---]]
-
-local Knit = require(game.ReplicatedStorage.Packages.Knit)
-local InventoryController = Knit.CreateController { Name = "InventoryController" }
-
-function InventoryController:KnitInit()
-    self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
-    self.Logger = self.OVHL:GetSystem("SmartLogger")
-    self.UIEngine = self.OVHL:GetSystem("UIEngine")
-    self.Config = self.OVHL:GetClientConfig("Inventory")
-    self.Service = Knit.GetService("InventoryService")
+function ShopService:KnitInit()
+    self.OVHL = require(...)
+    self.DataManager = self.OVHL:GetSystem("DataManager")  -- ✅ OK
 end
 
-function InventoryController:KnitStart()
-    -- Load modul logika view kita
-    self.BackpackView = require(script.Parent.Views.BackpackView)
-    self.BackpackView:Init(self.UIEngine, self.Service, self.Config)
-
-    self:SetupUI()
+function ShopService:ProcessPurchase(player, itemId)
+    local playerData = self.DataManager:GetCachedData(player)
+    -- Gunakan playerData
 end
+```
 
-function InventoryController:SetupUI()
-    -- Mount UI utama
-    local mainUI = self.UIEngine:CreateScreen("InventoryUI", self.Config)
+### **Q: Gimana kalau **rate limit berbeda per rank**?**
 
-    -- Delegasi render/binding ke View
-    self.BackpackView:Mount(mainUI)
+**A:** Handle di service:
+
+```lua
+function ShopService:ProcessPurchase(player, itemId)
+    local action = "Purchase"
+
+    -- Custom rate limit check per rank
+    local rank = self.PermissionCore:GetRank(player)
+    if rank == "VIP" then
+        action = "Purchase_VIP"  -- VIP rate limit lebih tinggi
+    end
+
+    if not self.RateLimiter:Check(player, action) then
+        return false, "Rate limit exceeded"
+    end
+
+    -- Continue
 end
+```
 
-return InventoryController
+### **Q: Gimana kalau **UI need realtime updates** (player buy item, inventory update)?**
 
---[[
-@End: InventoryController.lua
-@Version: 3.1.0
-@See: docs/200_USER_GUIDES/201_CONTRIBUTING_MODULE.md
---]]
+**A:** Gunakan `NotificationService`:
+
+```lua
+function ShopService:ProcessPurchase(player, itemId)
+    -- ... security checks ...
+
+    -- Execute purchase
+    local success = self:_executePurchase(player, itemId)
+
+    if success then
+        -- Notify client
+        local NotifService = self.OVHL:GetSystem("NotificationService")
+        NotifService:SendToPlayer(player, "Purchase successful!", "Success", 3)
+    end
+
+    return success
+end
 ```
 
 ---
 
-## 4. ❓ FAQ (PENTING!)
+## 6. TESTING MODUL
 
-> **Sumber:** Diselamatkan dari `06_MODULE_CREATION.md` (Legacy)
+Buat test file:
 
-**Q: Gue butuh sistem DataStore canggih, tapi di API Reference gak ada.**
-**A:** Jangan paksakan logic DataStore di dalam Module (Service) lu. Itu melanggar prinsip _Separation of Concerns_.
+```lua
+-- tests/Unit/ShopService.spec.lua
+return function()
+    local Shop = require(game.ServerScriptService.OVHL.Modules.Shop.ShopService)
 
-1.  Baca `202_CONTRIBUTING_SYSTEM.md` untuk memahami bedanya **System** vs **Service**.
-2.  Buat **System** baru di `src/ReplicatedStorage/OVHL/Systems/Advanced/DataManager.lua`. (Ini adalah item di Roadmap Phase 3 kita).
-3.  Baru panggil sistem itu di `InventoryService` lu via `self.OVHL:GetSystem("DataManager")`.
+    describe("ShopService", function()
+        it("should validate input", function()
+            -- Test malformed input
+        end)
 
-**Q: UI gue kompleks banget, `UIEngine:CreateScreen` doang gak cukup.**
-**A:** Gunakan **Pola Modul Kompleks (Section 3)** di atas. Pecah UI lu jadi `Views/` (misal: `BackpackView.lua`, `EquipmentView.lua`). `UIEngine` me-mount _container_ utamanya, lalu `Views` Anda yang mengurus binding dan rendering di dalamnya.
+        it("should check rate limit", function()
+            -- Test spam requests
+        end)
+
+        it("should execute purchase", function()
+            -- Test successful purchase
+        end)
+    end)
+end
+```
+
+---
+
+## 7. DEPLOYMENT CHECKLIST
+
+Sebelum push modul ke production:
+
+- [ ] Semua 3 config files ada + lengkap
+- [ ] Service punya semua security checks (3 pilar)
+- [ ] Controller punya UI + input setup
+- [ ] Topbar button works
+- [ ] Test di studio: full workflow (UI → action → server → response)
+- [ ] Data persists (rejoin game, data masih ada)
+- [ ] No console errors
+- [ ] Code headers/footers V1.0.0
+- [ ] No placeholder / TODOs
+- [ ] Related docs updated (atau PR untuk update docs)
 
 ---
 

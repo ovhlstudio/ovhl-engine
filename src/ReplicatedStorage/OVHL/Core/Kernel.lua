@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: Kernel (Core)
+@Path: ReplicatedStorage.OVHL.Core.Kernel
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - ENHANCED KERNEL SYSTEM (PATCHED V2)
 Version: 3.0.2
 Path: ReplicatedStorage.OVHL.Core.Kernel
@@ -148,3 +156,11 @@ function Kernel:RunVerification()
 end
 
 return Kernel
+
+--[[
+@End: Kernel.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

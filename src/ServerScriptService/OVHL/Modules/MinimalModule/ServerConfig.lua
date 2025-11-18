@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: ServerConfig (Module)
+@Path: ServerScriptService.OVHL.Modules.MinimalModule.ServerConfig
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE SERVER CONFIG  
 Version: 3.0.0
 Path: ServerScriptService.OVHL.Modules.MinimalModule.ServerConfig
@@ -31,3 +39,11 @@ return {
         MaxConnections = 100
     }
 }
+
+--[[
+@End: ServerConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

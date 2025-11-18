@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: UIManager (UI)
+@Path: ReplicatedStorage.OVHL.Systems.UI.UIManager
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - UI MANAGER SYSTEM
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Systems.UI.UIManager
@@ -239,3 +247,11 @@ function UIManager:CleanupModule(moduleName)
 end
 
 return UIManager
+
+--[[
+@End: UIManager.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

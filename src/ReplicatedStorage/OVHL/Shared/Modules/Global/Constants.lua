@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: Constants (Module)
+@Path: ReplicatedStorage.OVHL.Shared.Modules.Global.Constants
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - GLOBAL CONSTANTS
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Shared.Modules.Global.Constants
@@ -39,3 +47,11 @@ return {
         }
     }
 }
+
+--[[
+@End: Constants.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

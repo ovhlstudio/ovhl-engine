@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: RemoteBuilder (Networking)
+@Path: ReplicatedStorage.OVHL.Systems.Networking.RemoteBuilder
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - REMOTE BUILDER SYSTEM
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Systems.Networking.RemoteBuilder
@@ -262,3 +270,11 @@ function RemoteBuilder:CleanupModule(moduleName)
 end
 
 return RemoteBuilder
+
+--[[
+@End: RemoteBuilder.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

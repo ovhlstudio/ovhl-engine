@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: LoggerConfig (Module)
+@Path: ReplicatedStorage.OVHL.Config.LoggerConfig
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - LOGGER CONFIGURATION
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Config.LoggerConfig
@@ -74,3 +82,11 @@ return {
         Production = "SILENT",
     },
 }
+
+--[[
+@End: LoggerConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: Bootstrap (Core)
+@Path: ReplicatedStorage.OVHL.Core.Bootstrap
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.2.3 (HOTFIX)
 @Component: Bootstrap (Core Scanner)
 @Path: ReplicatedStorage.OVHL.Core.Bootstrap
@@ -215,3 +223,11 @@ return Bootstrap
 @Version: 3.2.3
 @See: docs/ADR_V3-2-2.md
 --]]
+
+--[[
+@End: Bootstrap.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

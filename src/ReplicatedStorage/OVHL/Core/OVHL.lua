@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: OVHL (Core)
+@Path: ReplicatedStorage.OVHL.Core.OVHL
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - ENHANCED API GATEWAY (PATCHED)
 Version: 3.0.1
 Path: ReplicatedStorage.OVHL.Core.OVHL
@@ -106,3 +114,11 @@ function OVHL:GetSystemsLoadOrder()
 end
 
 return OVHL
+
+--[[
+@End: OVHL.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

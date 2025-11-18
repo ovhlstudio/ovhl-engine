@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: ServerRuntime.server (Module)
+@Path: ServerScriptService.OVHL.ServerRuntime.server
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.4.0 (ADR-004)
 @Component: ServerRuntime
 @Path: ServerScriptService.OVHL.ServerRuntime.server.lua
@@ -76,3 +84,11 @@ end)
 @Version: 3.4.0 (ADR-004)
 @See: docs/ADR_V3-4-0.md (Diusulkan)
 --]]
+
+--[[
+@End: ServerRuntime.server.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

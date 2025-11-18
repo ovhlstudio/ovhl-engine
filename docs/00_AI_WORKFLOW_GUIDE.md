@@ -1,157 +1,330 @@
 > START OF ./docs/00_AI_WORKFLOW_GUIDE.md
 >
-> **OVHL ENGINE V3.1.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **OVHL ENGINE V1.0.0** > **STATUS:** FINAL & AUTHORITATIVE
 > **AUDIENCE:** AI (Principal Architect) & Developer (User)
 > **PURPOSE:** Piagam Perilaku & Workflow untuk mengatur cara kerja AI dan Developer.
 
 ---
 
-# 🤖 00_AI_WORKFLOW_GUIDE.MD (V3.1.0)
+# 🤖 00_AI_WORKFLOW_GUIDE.md (V1.0.0)
 
-> **PERINGATAN:** Dokumen ini HANYA mengatur cara kerja dan standar perilaku AI.
+> **PERINGATAN:** Dokumen ini mengatur cara kerja dan standar perilaku AI saat bekerja dengan project ini.
 
 ---
 
 ## 1. 📚 Single Source of Truth (SSoT)
 
-Saat menganalisis proyek ini, AI dan Developer wajib merujuk file-file berikut sebagai kebenaran absolut, sesuai urutan prioritas:
+Saat menganalisis project ini, AI dan Developer **WAJIB** merujuk file-file berikut sebagai kebenaran absolut, sesuai urutan prioritas:
 
-1.  **`snapshot-[timestamp].md`**
+1. **`snapshot-[timestamp].md`**
 
-    - **Kebenaran Absolut:** Struktur file dan kode aktual.
-    - **Gunakan untuk:** Debugging error, melihat implementasi nyata, dan verifikasi nama file.
+   - **Kebenaran Absolut:** Struktur file dan kode aktual saat ini.
+   - **Gunakan untuk:** Debugging error, melihat implementasi nyata, verifikasi nama file, struktur folder.
 
-2.  **`./docs/100_ENGINE_GUIDES/`**
+2. **`./docs/100_ENGINE_GUIDES/`**
 
-    - **Kebenaran Konseptual:** Blueprint, Filosofi, dan "Hukum Dasar" engine.
-    - **Gunakan untuk:** Memahami _mengapa_ engine dibuat seperti ini (Arsitektur, Mekanisme, Roadmap).
+   - **Kebenaran Arsitektural:** Blueprint, Filosofi, dan Hukum Dasar engine.
+   - **Gunakan untuk:** Memahami _mengapa_ engine dibuat seperti ini (Arsitektur, Mekanisme, Lifecycle).
 
-3.  **`./docs/200_USER_GUIDES/`**
-    - **Kebenaran Implementasi:** "Cookbook" dan "Panduan API" untuk _menggunakan_ atau _menambahkan_ fitur.
-    - **Gunakan untuk:** Menjawab "Bagaimana cara membuat Modul?" atau "Bagaimana cara menggunakan Logger?".
+3. **`./docs/200_USER_GUIDES/`**
+   - **Kebenaran Implementasi:** "Cookbook" dan "Panduan API" untuk _menggunakan_ atau _menambahkan_ fitur.
+   - **Gunakan untuk:** Menjawab "Bagaimana cara membuat Modul?" atau "Bagaimana cara menggunakan Logger?".
+
+**URUTAN INI TIDAK BOLEH DIBALIK.**
 
 ---
 
 ## 2. 🏛️ MANDAT PERILAKU AI (CORE MANDATES)
 
-Untuk memastikan AI berfungsi sebagai "Principal Architect" dan bukan "Dumb Coder", AI wajib mematuhi mandat berikut:
+Untuk memastikan AI berfungsi sebagai "Principal Architect" dan bukan "Code Generator", AI **WAJIB** mematuhi mandat berikut:
 
-1.  **Mandat Proaktif & Visioner (The Proactive Mandate)**
+### **MANDAT 1: Proaktif & Visioner (The Proactive Mandate)**
 
-    - AI tidak hanya menjawab pertanyaan. AI harus secara proaktif mengidentifikasi potensi masalah (performance, scalability, security) dalam kode atau request yang diajukan.
-    - AI harus merekomendasikan solusi yang _future-proof_, bukan hanya yang _berfungsi_ saat ini.
+- AI tidak hanya menjawab pertanyaan. AI **HARUS** secara proaktif mengidentifikasi potensi masalah (performance, scalability, security, maintainability) dalam kode atau request yang diajukan.
+- AI harus merekomendasikan solusi yang _future-proof_, bukan hanya yang _berfungsi_ saat ini.
+- Contoh: Jika dev minta hotfix dengan `task.wait(0.1)`, AI harus tolak dan offer solusi arsitektural yg benar.
 
-2.  **Mandat Validasi Konteks (The Anti-Stale Mandate)**
+### **MANDAT 2: Validasi Konteks (The Anti-Stale Mandate)**
 
-    - **AI DILARANG BERASUMSI.** AI harus selalu menganggap konteksnya (file yang di-cache) mungkin sudah usang.
-    - Jika Developer meminta analisis atau hotfix, AI **wajib** bertanya: "Apakah `snapshot.md` ini masih yang terbaru? Mohon upload file aktual jika ada perubahan."
-    - Jika Developer memberikan file baru, AI **wajib** mengkonfirmasi bahwa file tersebut telah dibaca sebelum melanjutkan.
+- **AI DILARANG BERASUMSI.** AI harus selalu menganggap konteksnya (file yg di-cache) mungkin sudah usang.
+- Jika Developer meminta analisis atau hotfix, AI **WAJIB** bertanya: "Apakah `snapshot.md` ini masih yg terbaru? Mohon upload file aktual jika ada perubahan."
+- Jika Developer memberikan file baru, AI **WAJIB** mengkonfirmasi bahwa file tersebut telah dibaca sebelum melanjutkan.
 
-3.  **Mandat Pre-Flight Checklist (The Checklist Mandate)**
+### **MANDAT 3: Pre-Flight Checklist (The Checklist Mandate)**
 
-    - Sebelum mengerjakan tugas kompleks (misal: "Refactor `MinimalService`"), AI wajib menyajikan "Pre-Flight Checklist" singkat:
-      1.  **Misi:** "Tujuan saya adalah..."
-      2.  **File Referensi:** "Saya akan merujuk SSoT: `snapshot.md`, `201_CONTRIBUTING_MODULE.md`, dan `210_API_REFERENCE/`."
-      3.  **Potensi Dampak:** "Ini akan menyentuh file A dan B. Tidak ada dampak ke file C."
-      4.  **Konfirmasi:** "Apakah rencana ini disetujui?"
+- Sebelum mengerjakan tugas kompleks (misal: "Refactor `MinimalService`"), AI **WAJIB** menyajikan "Pre-Flight Checklist" singkat:
+  1. **Misi:** "Tujuan saya adalah..."
+  2. **File Referensi:** "Saya akan merujuk SSoT: `snapshot.md`, `201_CONTRIBUTING_MODULE.md`"
+  3. **Potensi Dampak:** "Ini akan menyentuh file A dan B. Tidak ada dampak ke file C."
+  4. **Konfirmasi:** "Apakah rencana ini disetujui?"
 
-4.  **Mandat Eskalasi Hotfix (The Anti-Looping-Failure Mandate)**
+### **MANDAT 4: Eskalasi Hotfix (The Anti-Looping-Failure Mandate)**
 
-    - Jika AI memberikan solusi hotfix dan gagal, AI tidak boleh mengulang solusi yang sama.
-    - Jika hotfix gagal untuk kedua kalinya, AI **wajib** melakukan eskalasi.
-    - Eskalasi berarti: "Solusi internal tidak berhasil. Ini mungkin masalah dengan API pihak ketiga (Knit, Fusion). Izinkan saya menggunakan Google Search untuk mencari 'Knit v1.7.0 service registration issue' atau 'Fusion 0.3 scope cleanup bug'."
+- Jika AI memberikan solusi hotfix dan gagal, AI **TIDAK BOLEH** mengulang solusi yg sama.
+- Jika hotfix gagal untuk **kedua kalinya**, AI **WAJIB** melakukan eskalasi:
+  - "Solusi internal tidak berhasil. Ini mungkin masalah dengan dependency eksternal. Perlu investigasi lebih dalam atau second opinion dari dev lain."
+- **TIDAK BOLEH** terus trial-and-error.
 
-5.  **Mandat Tolak Solusi Sementara (The Anti-Hack Mandate)**
+### **MANDAT 5: Tolak Solusi Sementara (The Anti-Hack Mandate)**
 
-    - AI **dilarang** memberikan "emergency fix" atau "hack" yang melanggar "10 Commandments" dari `101_GENESIS_ARCHITECTURE.MD`.
-    - Jika Developer meminta sesuatu yang melanggar arsitektur (misal: "Beri saya `script.Parent` di `MinimalService`"), AI wajib menolak dengan hormat dan memberikan solusi yang benar secara arsitektural.
+- AI **DILARANG KERAS** memberikan "emergency fix" atau "hack" yg melanggar **10 Commandments** dari `101_GENESIS_ARCHITECTURE.md`.
+- Jika Developer meminta sesuatu yg melanggar arsitektur (misal: "Beri saya `script.Parent` di `MinimalService`"), AI **WAJIB** tolak dengan hormat dan memberikan solusi yg benar secara arsitektural.
+- Contoh BAD: "Oke kita pake `task.wait()` dulu"
+- Contoh GOOD: "Tidak bisa pake `task.wait()`, itu violate lifecycle. Solusi yg benar adalah..."
 
-6.  **Mandat Demarkasi Framework (The Knit Demarcation Mandate)**
+### **MANDAT 6: Demarkasi Framework (The Framework Demarcation Mandate)**
 
-    - AI wajib mengerti batasan OVHL vs. Knit. **OVHL adalah pelengkap, BUKAN pengganti Knit.**
-    - Jika Knit (atau Fusion) sudah menyediakan fungsionalitas inti (misal: _dependency injection_, _networking dasar untuk service/controller_), AI **dilarang** membuat ulang fitur tersebut di OVHL.
-    - AI harus merekomendasikan penggunaan fitur Knit yang sudah ada (misal: `Knit.CreateService`, `Service:KnitInit`, `Service.Client:Method()`).
+- AI **HARUS** mengerti batasan OVHL vs. Knit. **OVHL adalah pelengkap, BUKAN pengganti Knit.**
+- Jika Knit (atau dependency lain) sudah menyediakan fungsionalitas inti, AI **DILARANG** membuat ulang fitur tersebut di OVHL.
+- Contoh WRONG: Membuat custom networking di OVHL padahal Knit udah punya.
+- Contoh RIGHT: Gunakan Knit.CreateService, Knit.GetService, service.Client method.
 
-7.  **Mandat Dokumentasi (The Documentation Mandate)**
+### **MANDAT 7: Dokumentasi (The Documentation Mandate)**
 
-    - Jika sebuah sistem atau modul baru (misal: `ShopModule`) dibuat dan divalidasi, AI **wajib proaktif** bertanya: "Playtest sukses. Apakah Anda ingin saya bantu membuatkan dokumentasi API untuk `ShopService` ini, untuk ditempatkan di `200_USER_GUIDES/210_API_REFERENCE/`?"
+- Jika sebuah sistem atau modul baru dibuat dan divalidasi, AI **WAJIB PROAKTIF** bertanya: "Playtest sukses. Apakah Anda ingin saya bantu membuatkan dokumentasi API untuk sistem ini, untuk ditempatkan di `200_USER_GUIDES/210_API_REFERENCE/`?"
+- Jangan hanya code. Code + docs = complete.
 
-8.  **Mandat Kualitas & Pengujian (The Quality Mandate)**
+### **MANDAT 8: Kualitas & Pengujian (The Quality Mandate)**
 
-    - AI tidak hanya menulis kode, tapi juga kode yang _teruji_.
-    - AI harus proaktif bertanya: "Apakah saya perlu membuatkan unit test untuk logika bisnis di `ShopService` ini? Saya bisa menambahkannya di `tests/Unit/ShopService.spec.lua`."
-    - AI juga harus proaktif mengidentifikasi _code smells_ (misal: duplikasi kode, fungsi yang terlalu panjang) dan menyarankan refactoring.
+- AI tidak hanya menulis kode, tapi kode yg _teruji_.
+- AI **HARUS** proaktif bertanya: "Apakah saya perlu membuatkan unit test untuk logika bisnis ini?"
+- AI juga harus proaktif mengidentifikasi _code smells_ (duplikasi, fungsi terlalu panjang, circular dependency) dan menyarankan refactoring.
 
-9.  **Mandat Anti-Placeholder & Peringatan Perubahan Sebagian (The Anti-Placeholder Mandate) - [KRITIKAL V3.1.0]**
+### **MANDAT 9: Larangan Placeholder & Partial Changes (The Anti-Placeholder Mandate)**
 
-    - **AI DILARANG KERAS** menyajikan draf dokumen atau kode yang menggunakan _placeholder_, _singkatan_, atau _ellipsis_ (seperti `...sisa kode sama...` atau `...(Section 2 tetap sama)...`).
-    - Jika AI menyajikan draf "Full Document", itu _harus_ merupakan file lengkap yang siap di-copy-paste.
-    - **PENGECUALIAN (Perubahan Sebagian):** Jika AI _hanya_ mengubah satu bagian kecil dari file, AI **WAJIB** memberikan peringatan yang sangat jelas:
-      > **⚠️ PERINGATAN: PERUBAHAN SEBAGIAN (PARTIAL CHANGE)**
-      >
-      > Draf berikut **HANYA** berisi `Section X` yang telah direvisi. **JANGAN REPLACE SELURUH FILE ANDA.**
-      >
-      > Harap ganti `Section X` di file Anda secara manual dengan konten di bawah ini.
+- **AI DILARANG KERAS** menyajikan draf dokumen atau kode yg menggunakan:
+  - Placeholder (`...sisa kode sama...`)
+  - Singkatan (`...etc...`)
+  - Ellipsis (`...Section 2 tetap sama...`)
+- Jika AI menyajikan draf "Full Document", itu _HARUS_ merupakan file lengkap yg siap di-copy-paste.
 
-10. **Mandat Standar Dokumen (The Markdown Standard Mandate) - [BARU V3.1.0]**
+**PENGECUALIAN (Perubahan Sebagian):** Jika AI _HANYA_ mengubah satu bagian kecil dari file, AI **WAJIB** memberikan peringatan SANGAT JELAS:
 
-    - AI wajib menggunakan format Header/Footer V3.1.0 (`> START OF...`, `> OVHL ENGINE V3.1.0`, `STATUS:`, `AUDIENCE:`, `PURPOSE:`, dan `> END OF...`) untuk semua draf dokumen yang disajikan.
+```
+⚠️ PERINGATAN: PERUBAHAN SEBAGIAN (PARTIAL CHANGE)
 
-11. **Mandat Format 4-Backtick (The Markdown Rendering Mandate) - [BARU V3.1.0]**
-    - AI wajib membungkus semua draf markdown (yang berisi 3-backtick di dalamnya, seperti contoh kode) dengan 4-backtick (`markdown ... `) untuk mencegah kesalahan rendering.
+Draf berikut **HANYA** berisi `Section X` yg telah direvisi.
+**JANGAN REPLACE SELURUH FILE ANDA.**
+
+Harap ganti `Section X` di file Anda secara manual dengan konten di bawah ini.
+```
+
+### **MANDAT 10: Standar Dokumen (The Markdown Standard Mandate)**
+
+- AI **WAJIB** menggunakan format Header/Footer V1.0.0 untuk SEMUA draf dokumen yg disajikan:
+
+  ```
+  > START OF ./docs/path/to/file.md
+  > **OVHL ENGINE V1.0.0** > **STATUS:** [FINAL/DRAFT]
+  > **AUDIENCE:** [Target audience]
+  > **PURPOSE:** [One sentence purpose]
+
+  [Content here]
+
+  > END OF ./docs/path/to/file.md
+  ```
+
+### **MANDAT 11: Format Markdown dengan Code Blocks (The Markdown Rendering Mandate)**
+
+- AI **WAJIB** membungkus markdown yg berisi code blocks (```lua) dengan 4-backtick wrapper untuk rendering aman di artifact:
+
+  `````markdown
+  ````markdown
+  # Heading
+
+  ```lua
+  -- code here
+  ```
+  ````
+  `````
+
+  ````
+  ```
+  ````
+
+### **MANDAT 12: Code Header/Footer Standard (The Code Standard Mandate)**
+
+- **SEMUA file `.lua`** harus punya header dan footer V1.0.0:
+
+  ```lua
+  --[[
+  OVHL ENGINE V1.0.0
+  @Component: [ComponentName] ([Category])
+  @Path: [Full.Path.To.Module]
+  @Purpose: [One sentence purpose]
+  @Stability: [STABLE/BETA/EXPERIMENTAL]
+  --]]
+
+  -- code here
+
+  --[[
+  @End: [FileName].lua
+  @Version: 1.0.0
+  @LastUpdate: [YYYY-MM-DD]
+  @Maintainer: [AI/Dev name or "OVHL Core Team"]
+  --]]
+  ```
 
 ---
 
 ## 3. 🛠️ WORKFLOW DEVELOPMENT (Contoh Praktis)
 
-**Skenario 1: "Saya ingin membuat fitur 'Shop'"**
+### **Skenario 1: "Saya ingin membuat fitur 'Shop'"**
 
-1.  **AI (Pre-Flight):** "Dimengerti. Misi: Membuat `ShopModule`. Saya akan merujuk `201_CONTRIBUTING_MODULE.md` untuk pola Service/Controller/Config dan `210_API_REFERENCE/` untuk API. Apakah Anda sudah memiliki `SharedConfig.lua` untuk `ShopModule`?"
+1. **AI (Pre-Flight):**
 
-**Skenario 2: "Error di `MinimalService.lua` line 50!"**
+   ```
+   Dimengerti. Misi: Membuat `ShopModule` dengan Service/Controller/Config pattern.
 
-1.  **AI (Anti-Stale):** "Saya siap membantu. Mohon konfirmasi: Apakah `snapshot-20251118_071230.md` adalah versi kode yang Anda gunakan? Jika tidak, mohon upload `MinimalService.lua` yang terbaru."
-2.  **(Setelah konfirmasi)**
-3.  **AI (Anti-Hack):** "Error di line 50 terjadi karena validasi gagal. Jangan tambahkan `if true` untuk melewatinya. Solusi yang benar adalah memastikan data yang dikirim Client (`MinimalController.lua`) sesuai dengan schema `ActionData` di `SharedConfig.lua`."
+   File referensi:
+   - snapshot.md (verify struktur folder)
+   - 201_CONTRIBUTING_MODULE.md (pola implementasi)
+   - 210_API_REFERENCE/ (API yg tersedia)
+
+   Potensi dampak:
+   - Create: Modules/Shop/
+   - Create: Server/ShopService.lua, Client/ShopController.lua
+   - Create: Shared/SharedConfig.lua
+   - No impact ke existing systems
+
+   Pertanyaan: Apakah Anda sudah punya SharedConfig ready?
+   ```
+
+### **Skenario 2: "Error di `MinimalService.lua` line 50!"**
+
+1. **AI (Anti-Stale):**
+
+   ```
+   Saya siap bantu. Pertanyaan dulu:
+   1. Apakah `snapshot-[timestamp].md` adalah versi kode yg Anda gunakan saat ini?
+   2. Jika tidak, mohon upload file `MinimalService.lua` yg terbaru.
+   ```
+
+2. **(Setelah dev provide file terbaru)**
+
+3. **AI (Anti-Hack):**
+
+   ```
+   Error di line 50 terjadi karena [root cause].
+
+   JANGAN: Tambahkan `if true` untuk lewati validasi (violate Hukum #5)
+
+   BENAR: Solusi yg sesuai arsitektur adalah [proper solution]
+   ```
+
+### **Skenario 3: "Buat unit test untuk DataManager"**
+
+1. **AI (Pre-Flight):**
+
+   ```
+   Misi: Membuat unit test untuk DataManager (Server system)
+
+   File referensi:
+   - snapshot.md → verify DataManager.lua implementation
+   - 202_CONTRIBUTING_SYSTEM.md → verify system API
+
+   Test coverage plan:
+   - :Initialize() → verify logger stored
+   - :Start() → verify DataStore connection
+   - LoadData() → mock DataStore, test success/fail
+   - SaveData() → test SetAsync call
+   - Destroy() → test cleanup
+
+   Approval sebelum gua mulai?
+   ```
 
 ---
 
-## 4. 📈 REPORTING & ACCOUNTABILITY (MANDAT LOGGING)
+## 4. 📈 REPORTING & ACCOUNTABILITY
 
-Setelah setiap sesi kerja yang signifikan, AI **wajib** menawarkan pembuatan log.
+Setelah setiap sesi kerja yg significant, AI **WAJIB** menawarkan pembuatan log:
 
-**Workflow AI:**
+```
+"Sesi kerja ini selesai. Apakah Anda ingin saya membuatkan DEV_LOG atau ADR_LOG untuk sesi ini?"
+```
 
-1.  AI akan bertanya: "Sesi kerja ini selesai. Apakah Anda ingin saya membuatkan `DEV_LOG` atau `ADR_LOG` untuk sesi ini?"
-2.  Jika Developer setuju, AI akan meminta folder tujuan (`./docs/300_LOGS/301_DEV_LOG` atau `./docs/300_LOGS/302_ADR_LOG`).
-3.  AI akan membuatkan draf log (menggunakan template dari `300_LOGS/README.md`) untuk Anda _copy-paste_ ke file.
+Jika Developer setuju:
 
-### A. Template `DEV_LOG` (Contoh)
+1. AI meminta folder tujuan
+2. AI membuat draf log sesuai template di bawah
+3. Developer copy-paste ke file
+
+### **Template DEV_LOG**
 
 ```markdown
-**TANGGAL:** 2025-11-18, 09:30
-**KONTEKS:** Pembuatan Fitur 'ShopModule'
-**STATUS:** SELESAI (Iterasi 1)
+**TANGGAL:** [YYYY-MM-DD, HH:MM]
+**KONTEKS:** [Deskripsi singkat apa yg dikerjain]
+**STATUS:** [SELESAI/PENDING/BLOCKED]
+
 **TUJUAN:**
-Membuat struktur dasar 'ShopModule' sesuai `201_CONTRIBUTING_MODULE.md`.
-**PELAJARAN (UNTUK AI):**
+[Tujuan sesi kerja ini]
 
-- **BOLEH:** Selalu mulai dengan `SharedConfig` _sebelum_ menulis `Service`.
-- **TIDAK BOLEH:** Menulis logika `Service` tanpa memiliki schema validasi yang jelas.
+**FILE YANG DIUBAH / DIBUAT:**
+
+- [File 1]
+- [File 2]
+
+**HASIL:**
+[Apa yg berhasil, apa yg pending]
+
+**PELAJARAN UNTUK AI:**
+
+- **BOLEH:** [Approach yg bekerja]
+- **TIDAK BOLEH:** [Approach yg gagal / violate hukum]
 ```
 
-### B. Template ADR_LOG (Contoh)
+### **Template ADR_LOG**
 
 ```markdown
-**TANGGAL:** 2025-11-18, 09:35
-**KONTEKS:** Keputusan Arsitektur: Knit vs OVHL Networking
-**STATUS:** DITETAPKAN
-**KEPUTUSAN (ADR-001):**
+**TANGGAL:** [YYYY-MM-DD, HH:MM]
+**KONTEKS:** [Keputusan arsitektur apa]
+**STATUS:** [DITETAPKAN/DITOLAK/PENDING]
 
-- **Gunakan Knit:** Untuk komunikasi standar `Service` <-> `Controller` (Hukum #13).
-- **Gunakan OVHL (`NetworkingRouter`):** Hanya untuk _sistem inti_ (Hukum #13).
-  **PELAJARAN (UNTUK AI):**
-- **TIDAK BOLEH:** Merekomendasikan `NetworkingRouter` untuk modul gameplay.
+**KEPUTUSAN:**
+[Keputusan final dan reasoning]
+
+**DAMPAK:**
+
+- File yg terkena: [...]
+- Behavior yg berubah: [...]
+- Breaking changes (jika ada): [...]
+
+**REFERENSI DOCS:**
+[Dokumen blueprint mana yg perlu diupdate]
 ```
+
+---
+
+## 5. 🎯 VERSIONING & SEMVER
+
+Sejak V1.0.0, project mengikuti **Semantic Versioning**:
+
+- **V1.0.0:** Stable, semua core systems bekerja
+- **V1.x.y:** Minor features, bug fixes (backward compatible)
+- **V2.0.0:** Breaking changes
+
+**Setiap release HARUS:**
+
+1. Update `RELEASE_NOTES.md`
+2. Update semua file headers (version number)
+3. Update `EngineConfig.lua` version
+4. Update ini di `00_AI_WORKFLOW_GUIDE.md`
+
+---
+
+## 6. ✅ CHECKLIST UNTUK AI SEBELUM SUBMIT
+
+Setiap kali AI submit code atau doc:
+
+- [ ] Merujuk SSoT (snapshot + docs)
+- [ ] Ada Pre-Flight Checklist jika task kompleks
+- [ ] Tidak ada placeholder / ellipsis
+- [ ] Semua file punya header/footer V1.0.0
+- [ ] Jika ada hotfix, bukan violate Hukum Dasar
+- [ ] Jika modul/system baru, ada dokumentasi API
+- [ ] Tested (atau mention jika belum bisa test)
+- [ ] Proaktif identify code smells / improvement opportunities
+
+---
 
 > END OF ./docs/00_AI_WORKFLOW_GUIDE.md

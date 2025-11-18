@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: SecurityHelper (Security)
+@Path: ReplicatedStorage.OVHL.Systems.Security.SecurityHelper
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - SECURITY HELPER
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Systems.Security.SecurityHelper
@@ -156,3 +164,11 @@ function SecurityHelper:AuditPlayer(player)
 end
 
 return SecurityHelper
+
+--[[
+@End: SecurityHelper.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

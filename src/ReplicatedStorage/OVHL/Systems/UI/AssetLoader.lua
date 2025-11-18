@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: AssetLoader (UI)
+@Path: ReplicatedStorage.OVHL.Systems.UI.AssetLoader
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - ASSET LOADER SYSTEM
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Systems.UI.AssetLoader
@@ -174,3 +182,11 @@ function AssetLoader:Cleanup()
 end
 
 return AssetLoader
+
+--[[
+@End: AssetLoader.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

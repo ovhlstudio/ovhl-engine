@@ -1,196 +1,474 @@
 > START OF ./docs/100_ENGINE_GUIDES/101_GENESIS_ARCHITECTURE.md
 >
-> **OVHL ENGINE V3.4.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **OVHL ENGINE V1.0.0** > **STATUS:** FINAL & AUTHORITATIVE
 > **AUDIENCE:** ENGINE ARCHITECT
-> **PURPOSE:** Definisi Hukum Arsitektural yang Absolut dan Abadi.
+> **PURPOSE:** Definisi Hukum Arsitektural yg Absolut dan Abadi untuk V1.0.0.
 
 ---
 
-# 📜 101_GENESIS_ARCHITECTURE.MD (The Core Law)
+# 📜 101_GENESIS_ARCHITECTURE.md (V1.0.0 - Core Law)
 
 ---
 
-## 1. FILOSOFI & HUKUM DASAR (THE COMMANDMENTS)
+## 1. FILOSOFI & HUKUM DASAR (THE 12 COMMANDMENTS)
 
-1.  **Zero Core Modification:** Modul game (`Modules/`) dilarang menyentuh folder `Core/`. Core adalah _black box_.
-2.  **Separation of Concerns:** `Systems/` = Technical (Logger, Security). `Modules/` = Gameplay (Inventory). (Lihat `202_CONTRIBUTING_SYSTEM.md` untuk detail).
-3.  **Server Authority:** Client tidak dipercaya. Input wajib lewat `InputValidator` (Schema) & `RateLimiter`.
-4.  **Config-Driven:** Behavior diatur via 3 file Config (`SharedConfig`, `ServerConfig`, `ClientConfig`). Dilarang hardcode magic values.
-5.  **Fusion 0.3 (Strict Scope):** UI wajib menggunakan `Fusion.scoped`. Dilarang instansiasi UI tanpa Scope (untuk memory safety).
-6.  **No Global State:** State disimpan di Service/Controller atau `StateManager` (Roadmap Phase 3). `_G` dilarang.
-7.  **Self-Contained Modules:** Modul membawa 3 file config, service, dan controller-nya sendiri.
-8.  **No `init.lua`:** Dilarang keras menggunakan file bernama `init.lua`. Gunakan nama deskriptif (`Bootstrap.lua`, `Kernel.lua`).
-9.  **Explicit Paths:** Gunakan `game:GetService` atau path traversal eksplisit. Dilarang `script.Parent` berlebihan.
-10. **Luau Compatibility:** Gunakan sintaks Luau yang valid (misal: `table.size` tidak ada).
-11. **Mandatory Code Header V3.4.0:** Semua file `.lua` wajib menyertakan blok Header V3.4.0 (`@Component:`, `@Path:`, `@Purpose:`).
-12. **Mandatory Code Footer V3.4.0:** Semua file `.lua` wajib menyertakan blok Footer V3.4.0 (`@End:`, `@Version:`, `@See:`).
-13. **ADR Integration Rule:** Semua keputusan arsitektural yang dicatat dalam `302_ADR_LOG.md` wajib diintegrasikan (dikutip, diringkas, atau dijelaskan) ke dalam dokumen _blueprint_ terkait (di folder `100_ENGINE_GUIDES/` dan `200_USER_GUIDES/`).
-14. **Demarkasi Networking:** Gunakan **Knit Networking** (`Service.Client:Method()`) untuk semua komunikasi Modul-ke-Modul. Gunakan **OVHL Networking** (`NetworkingRouter`) HANYA untuk komunikasi Sistem-ke-Sistem (level engine) atau jika Pola Adapter membutuhkannya.
+**12 hukum ini adalah fondasi engine. Jangan dilanggar.**
+
+### **HUKUM 1: Zero Core Modification**
+
+- Modul game (`Modules/`) **DILARANG** menyentuh folder `Core/`
+- `Core/` adalah _black box_
+- Alasan: Menjaga stabilitas engine, prevent circular dependency
+
+### **HUKUM 2: Separation of Concerns**
+
+- `Systems/` = Teknologi inti (Logger, Validator, Router, DataManager)
+- `Modules/` = Fitur gameplay (Shop, Inventory, Quest)
+- Jangan campur: Services tidak boleh contain business logic mentah
+
+### **HUKUM 3: Server Authority**
+
+- Client **TIDAK** dipercaya
+- Input dari client **HARUS** lewat:
+  1. `InputValidator` (Schema check)
+  2. `RateLimiter` (Spam check)
+  3. `PermissionCore` (Rank check)
+- Baru lalu eksekusi business logic di server
+
+### **HUKUM 4: Config-Driven**
+
+- Behavior diatur via **3 file Config**:
+  - `SharedConfig.lua` (Kontrak data, schema, izin umum)
+  - `ServerConfig.lua` (Rahasia, API keys, db credentials)
+  - `ClientConfig.lua` (Preferensi visual, keybinds)
+- **DILARANG hardcode magic values**
+- Semua system ini akan support adapter pattern (V1.1.0 roadmap)
+
+### **HUKUM 5: Fusion 0.3 Scoped UI**
+
+- UI **WAJIB** menggunakan `Fusion.scoped`
+- **DILARANG** instansiasi UI tanpa Scope (memory leak heaven)
+- Scope otomatis cleanup saat `:Destroy()` dipanggil
+
+### **HUKUM 6: No Global State**
+
+- State disimpan di Service/Controller atau `StateManager` (Roadmap V1.1.0)
+- **`_G` DILARANG** (kecuali third-party APIs yg inject kesana)
+- Alasan: Thread safety, debugging nightmare
+
+### **HUKUM 7: Self-Contained Modules**
+
+- Modul membawa 3 file config, service, dan controller-nya sendiri
+- Folder structure:
+  ```
+  Modules/[ModuleName]/
+  ├── Shared/
+  │   └── SharedConfig.lua
+  ├── Server/
+  │   ├── [Name]Service.lua
+  │   └── ServerConfig.lua
+  └── Client/
+      ├── [Name]Controller.lua
+      └── ClientConfig.lua
+  ```
+
+### **HUKUM 8: No init.lua**
+
+- **DILARANG** file bernama `init.lua`
+- Gunakan nama deskriptif: `Bootstrap.lua`, `Kernel.lua`, `ServerRuntime.server.lua`
+- Alasan: Clarity, explicit is better than implicit
+
+### **HUKUM 9: Explicit Paths**
+
+- Gunakan `game:GetService()` atau path traversal eksplisit
+- **DILARANG `script.Parent` berlebihan**
+- Alasan: Maintainability, refactoring-proof
+
+### **HUKUM 10: Luau Compatibility**
+
+- Gunakan sintaks Luau yg valid
+- Contoh WRONG: `table.size()` (tidak ada di Luau)
+- Contoh RIGHT: Manual count dengan `for k,v in pairs(t)`
+
+### **HUKUM 11: Mandatory Code Header V1.0.0**
+
+- **SEMUA file `.lua` WAJIB** punya header:
+  ```lua
+  --[[
+  OVHL ENGINE V1.0.0
+  @Component: [ComponentName] ([Category])
+  @Path: [Full.Path.To.Module]
+  @Purpose: [One sentence]
+  @Stability: [STABLE/BETA/EXPERIMENTAL]
+  --]]
+  ```
+
+### **HUKUM 12: Mandatory Code Footer V1.0.0**
+
+- **SEMUA file `.lua` WAJIB** punya footer:
+  ```lua
+  --[[
+  @End: [FileName].lua
+  @Version: 1.0.0
+  @LastUpdate: [YYYY-MM-DD]
+  @Maintainer: [Name or "OVHL Core Team"]
+  --]]
+  ```
 
 ---
 
-## 2. STRUKTUR DIREKTORI PRODUKSI (V3.4.0)
+## 2. STRUKTUR DIREKTORI PRODUKSI (V1.0.0)
 
-(Struktur ini sesuai dengan `snapshot-20251118_113010.md`)
+(Struktur ini match dengan `snapshot-20251118_121113.md`)
 
 ```text
 src/
 ├── ReplicatedStorage/
 │   └── OVHL/
-│       ├── Core/                 # Jantung Engine
-│       │   ├── Bootstrap.lua     # [ENTRY] Environment Loader & Dependency Definition
-│       │   ├── Kernel.lua        # [ENTRY] Module Loader & Knit Bridge
-│       │   ├── OVHL.lua          # [API] Public API Gateway
-│       │   └── SystemRegistry.lua # [INTERNAL] Dependency Resolution Logic
-│       ├── Systems/              # Organ Tubuh (Fitur Teknis)
-│       │   ├── Foundation/       # Logger, ConfigLoader
-│       │   ├── Networking/       # Router, Security Middleware
-│       │   ├── Security/         # Validator, RateLimiter, Permission
-│       │   ├── UI/               # UIEngine (Fusion), UIManager, AssetLoader
-│       │   ├── Adapters/         # [BARU V3.1.0] Jembatan ke API Pihak Ketiga
-│       │   └── Advanced/         # [KOSONG, TARGET ROADMAP PHASE 3]
-│       ├── Config/               # Konfigurasi Global Engine
-│       ├── Types/                # CoreTypes.lua (Definisi Tipe)
-│       └── Shared/Modules/       # Game Modules (Bagian Shared)
-│           └── [ModuleName]/     # Nama Folder = Nama Modul
-│               ├── SharedConfig.lua # Config & Schema Validasi
+│       ├── Config/                 # Global configuration
+│       │   ├── EngineConfig.lua
+│       │   └── LoggerConfig.lua
+│       │
+│       ├── Core/                   # Black box - jangan diubah dari Modules/
+│       │   ├── Bootstrap.lua       # [ENTRY] Scanner & System Discovery
+│       │   ├── Kernel.lua          # [ENTRY] Module Loader & Knit Bridge
+│       │   ├── OVHL.lua            # [API] Public Gateway
+│       │   └── SystemRegistry.lua  # [ORCHESTRATOR] 4-Phase Lifecycle
+│       │
+│       ├── Systems/                # Engine core technologies
+│       │   ├── Foundation/         # Basics (Logger, ConfigLoader)
+│       │   │   ├── SmartLogger.lua
+│       │   │   ├── SmartLoggerManifest.lua
+│       │   │   ├── ConfigLoader.lua
+│       │   │   ├── ConfigLoaderManifest.lua
+│       │   │   └── StudioFormatter.lua
+│       │   │
+│       │   ├── Security/           # Security layer (Validator, RateLimiter, Permission)
+│       │   │   ├── InputValidator.lua
+│       │   │   ├── InputValidatorManifest.lua
+│       │   │   ├── RateLimiter.lua
+│       │   │   ├── RateLimiterManifest.lua
+│       │   │   ├── PermissionCore.lua
+│       │   │   ├── PermissionCoreManifest.lua
+│       │   │   └── SecurityHelper.lua
+│       │   │
+│       │   ├── Networking/         # Network layer (Router, RemoteBuilder)
+│       │   │   ├── NetworkingRouter.lua
+│       │   │   ├── NetworkingRouterManifest.lua
+│       │   │   ├── NetworkSecurity.lua
+│       │   │   └── RemoteBuilder.lua
+│       │   │
+│       │   ├── UI/                 # UI frameworks (Engine, Manager, AssetLoader)
+│       │   │   ├── UIEngine.lua
+│       │   │   ├── UIEngineManifest.lua
+│       │   │   ├── UIManager.lua
+│       │   │   ├── UIManagerManifest.lua
+│       │   │   ├── AssetLoader.lua
+│       │   │   └── AssetLoaderManifest.lua
+│       │   │
+│       │   └── Advanced/           # Complex systems (DataManager, PlayerManager, NotificationService)
+│       │       ├── DataManager.lua
+│       │       ├── DataManagerManifest.lua
+│       │       ├── PlayerManager.lua
+│       │       ├── PlayerManagerManifest.lua
+│       │       ├── NotificationService.lua
+│       │       └── NotificationServiceManifest.lua
+│       │
+│       ├── Types/                  # Type definitions (Luau)
+│       │   ├── CoreTypes.lua
+│       │   └── ScannerContract.lua
+│       │
+│       └── Shared/Modules/         # Game Modules (Shared config)
+│           ├── Global/
+│           │   └── Constants.lua
+│           └── [ModuleName]/
+│               └── SharedConfig.lua
 │
 ├── ServerScriptService/
 │   └── OVHL/
-│       ├── ServerRuntime.server.lua  # Entry Point Server
-│       └── Modules/              # Game Modules (Bagian Server)
+│       ├── ServerRuntime.server.lua    # Entry point server
+│       └── Modules/                    # Game Modules (Server part)
 │           └── [ModuleName]/
-│               ├── [Name]Service.lua # Logika Server & Security Implementation
-│               └── ServerConfig.lua  # Config rahasia
+│               ├── [Name]Service.lua
+│               └── ServerConfig.lua
 │
 └── StarterPlayer/StarterPlayerScripts/
     └── OVHL/
-        ├── ClientRuntime.client.lua  # Entry Point Client
-        └── Modules/              # Game Modules (Bagian Client)
+        ├── ClientRuntime.client.lua    # Entry point client
+        └── Modules/                    # Game Modules (Client part)
             └── [ModuleName]/
-                ├── [Name]Controller.lua # Logika Client & UI Mounting
-                └── ClientConfig.lua     # Config visual/input
+                ├── [Name]Controller.lua
+                └── ClientConfig.lua
 ```
 
 ---
 
-## 3. TECHNOLOGY STACK (VERSI BAKU V3.4.0)
+## 3. TECHNOLOGY STACK (V1.0.0)
 
-- **Framework:** [Knit (v1.7.0+)](https://sleitnick.github.io/Knit/)
-- **UI Library:** [Fusion (v0.3.0)](https://elttob.uk/Fusion/)
-- **Aturan UI:** Hanya `Fusion` (Programmatic) dan `Native` (Fallback). **Plasma Dihapus**.
-- **Integrasi Pihak Ketiga:** Wajib melalui **Pola Adapter** (Lihat `103_ARCHITECTURE_ADAPTERS.md`).
+- **Framework:** [Knit v1.7.0+](https://sleitnick.github.io/Knit/) - Service/Controller architecture
+- **UI Library:** [Fusion v0.3.0](https://elttob.uk/Fusion/) - Reactive UI (Luau-native)
+- **UI Rule:** Hanya `Fusion` (Programmatic) dan `Native` (Fallback). ~~Plasma dihapus~~.
+- **Testing:** Testez (built-in Roblox)
+- **Version Control:** Git (standard workflow)
 
 ---
 
 ## 4. SISTEM INTI (CORE SYSTEMS)
 
-- **Smart Bootstrap (`Core/Bootstrap.lua`):** Auto-discovery sistem di `Systems/`. Dependensi di-hardcode di file ini untuk SSoT load order.
-- **System Registry (`Core/SystemRegistry.lua`):** Melakukan _Topological Sort_ untuk mengurutkan sistem berdasarkan dependensi. **Mengimplementasikan Lifecycle 4-Fase (ADR-004)**.
-- **Security Layer (`Systems/Security/`):** `InputValidator` (Schema), `RateLimiter` (Spam), `PermissionCore` (Rank).
+### **Bootstrap (`Core/Bootstrap.lua`)**
+
+- Auto-discovery sistem di `Systems/` via `*Manifest.lua` files
+- Environment-aware (detect Server vs Client context)
+- Fallback ke V3.1.0 legacy systems jika manifest belum ada
+- **Keluaran:** Daftar `SystemManifest` untuk SystemRegistry
+
+### **Kernel (`Core/Kernel.lua`)**
+
+- Auto-discovery modul di `Modules/` folder
+- Scan `*Service.lua` (server) dan `*Controller.lua` (client)
+- Bridge ke Knit.CreateService / Knit.CreateController
+- **Keluaran:** Knit services/controllers teregistrasi
+
+### **SystemRegistry (`Core/SystemRegistry.lua`)**
+
+- **Orchestrator** untuk 4-Phase Lifecycle:
+  1. **Initialize**: Construct all systems + call `:Initialize(logger)`
+  2. **Register**: Register systems ke OVHL gateway (enable `OVHL:GetSystem()`)
+  3. **Start**: Call `:Start()` pada semua systems (safe untuk `OVHL:GetSystem()`)
+  4. **Destroy**: Call `:Destroy()` dalam **reverse order** saat `game:BindToClose()` (cleanup memory, events, etc)
+- **Topological Sort:** Resolve dependensi system menggunakan depth-first search
+- **Error Handling:** Stop boot jika ada circular dependency atau missing dependency
+
+### **OVHL Gateway (`Core/OVHL.lua`)**
+
+- Public API untuk game logic:
+  - `OVHL:GetSystem(name)` - Get system instance
+  - `OVHL:GetConfig(moduleName, key?, context?)` - Resolve layered config
+  - `OVHL:ValidateInput(schemaName, data)` - Input validation
+  - `OVHL:CheckPermission(player, node)` - Permission check
+  - `OVHL:CheckRateLimit(player, action)` - Rate limit check
 
 ---
 
-## 5. MODULE PATTERN (GOLDEN STANDARD)
+## 5. SECURITY PIPELINE (3 PILAR)
 
-(Rujuk `201_CONTRIBUTING_MODULE.md` untuk detail)
+Setiap request dari client ke server **HARUS** lewat:
 
-- **Server Service:** Wajib `KnitInit` (load dependency via `self.OVHL:GetSystem()`) dan `KnitStart` (logic).
-- **Client Controller:** Wajib menggunakan `UIEngine` untuk render UI.
-- **3-Config:** Wajib menggunakan 3 file config (Shared, Server, Client).
+```
+CLIENT REQUEST
+    ↓
+    ├─→ [1] InputValidator (Schema check)
+    │       Gunakan: SharedConfig.lua → ValidationSchemas
+    │
+    ├─→ [2] RateLimiter (Spam check)
+    │       Gunakan: SharedConfig.lua → RateLimits
+    │
+    ├─→ [3] PermissionCore (Rank/Access check)
+    │       Gunakan: SharedConfig.lua → Permissions
+    │
+    └─→ [OK] Business Logic (execute)
+            [FAIL] Return error to client
+```
+
+**Pattern di Knit Service:**
+
+```lua
+function MyService:ProcessAction(player, actionData)
+    -- 1. Validasi
+    local valid, err = self.InputValidator:Validate("ActionData", actionData)
+    if not valid then return false, err end
+
+    -- 2. Rate limit
+    if not self.RateLimiter:Check(player, "DoAction") then return false, "Spam" end
+
+    -- 3. Permission
+    if not self.PermissionCore:Check(player, "ModuleName.ActionName") then return false, "No access" end
+
+    -- 4. Business logic
+    return self:_executeLogic(player, actionData)
+end
+```
 
 ---
 
-## 7. ERROR HANDLING & RECOVERY
+## 6. 4-PHASE LIFECYCLE (ADR-004, V1.0.0 Standard)
 
-> **Sumber:** Diselamatkan dari `01_OVHL_ENGINE.md` (Legacy V2.2)
+**Semua system harus patuh pattern ini:**
 
-### 7.1 Error Classification
+| Fase  | Method                 | Tujuan                                          | Constraints                                                                     |
+| ----- | ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| **1** | `:Initialize(logger)`  | Setup logger, init variables                    | ❌ Jangan `OVHL:GetSystem()` / ❌ Jangan `Connect()` / ❌ Jangan `task.spawn()` |
+| **2** | _(otomatis, internal)_ | Register sistem ke OVHL gateway                 | _(hidden dari system)_                                                          |
+| **3** | `:Start()`             | Resolve dependensi, connect events, start tasks | ✅ BOLEH `OVHL:GetSystem()` / ✅ BOLEH `Connect()` / ✅ BOLEH `task.spawn()`    |
+| **4** | `:Destroy()`           | Cleanup (optional jika system active)           | ✅ Stop loop / ✅ Disconnect events / ✅ Save data                              |
+
+**Contoh:**
+
+```lua
+local DataManager = {}
+
+function DataManager.new()
+    local self = setmetatable({}, DataManager)
+    self._logger = nil
+    self._dataStore = nil
+    self._isRunning = false
+    return self
+end
+
+-- FASE 1: Initialize
+function DataManager:Initialize(logger)
+    self._logger = logger
+    -- Setup only, no external calls
+end
+
+-- FASE 3: Start
+function DataManager:Start()
+    local OVHL = require(...)
+    self._dataStore = DataStoreService:GetDataStore("PlayerData")
+    self._isRunning = true
+    self._logger:Info("DATAMANAGER", "Ready")
+end
+
+-- FASE 4: Destroy (jika ada background task)
+function DataManager:Destroy()
+    self._isRunning = false
+    self._logger:Info("DATAMANAGER", "Shutdown")
+end
+
+return DataManager
+```
+
+---
+
+## 7. MODULE PATTERN (GOLDEN STANDARD)
+
+Lihat `201_CONTRIBUTING_MODULE.md` untuk detail. Ringkas:
+
+- **Server Service:** `[Name]Service.lua`
+
+  - `KnitInit()`: Resolve dependensi
+  - `KnitStart()`: Mulai logic
+  - Client method: `self.Client:MethodName(player, data)`
+
+- **Client Controller:** `[Name]Controller.lua`
+
+  - `KnitInit()`: Get systems + service
+  - `KnitStart()`: Setup UI + input
+  - Server call: `self.Service:MethodName(data)`
+
+- **3-Config:** Wajib 3 file:
+  - `SharedConfig.lua`: Kontrak (schema, izin, rate limit)
+  - `ServerConfig.lua`: Rahasia (API keys, db creds)
+  - `ClientConfig.lua`: Preferensi (keybinds, theme)
+
+---
+
+## 8. ERROR HANDLING & RECOVERY
+
+### **Error Classification**
 
 - **Level 1 (Non-critical):** Fallback tersedia, log warning.
+  - Contoh: Asset gagal load → gunakan placeholder
 - **Level 2 (Module-specific):** Isolasi kegagalan, jangan crash engine.
-- **Level 3 (System-wide):** Degradasi sistem ke mode fallback.
-- **Level 4 (Critical):** Emergency recovery, simpan state, notifikasi monitoring.
+  - Contoh: Service gagal init → skip service, continue boot
+- **Level 3 (System-wide):** Degradasi ke mode fallback.
+  - Contoh: DataManager gagal koneksi → use in-memory cache
+- **Level 4 (Critical):** Emergency recovery + notification.
+  - Contoh: SystemRegistry circular dependency → stop boot, crash dengan log jelas
 
-### 7.2 Layered Error Handling
+### **Layered Error Handling**
 
-- **Layer 1: Input Validation (Modules):** `assert(typeof(param) == "string")`.
-- **Layer 2: System-Level Recovery (Core):** `pcall()` saat `require()` sistem, jika gagal gunakan fallback.
-- **Layer 3: Network Resilience (Router):** Retry dengan exponential backoff.
-
----
-
-## 8. PERFORMANCE & OPTIMIZATION
-
-> **Sumber:** Diselamatkan dari `01_OVHL_ENGINE.md` (Legacy V2.2)
-
-### 8.1 Performance Budget
-
-- **Frame Time Impact:** ≤5ms maksimum per frame.
-- **Memory Usage:** Kontrol pertumbuhan dengan lazy loading.
-- **Load Time:** <3 detik inisialisasi engine.
-
-### 8.2 Optimization Strategies
-
-- **Lazy Loading:** Modul di-load saat dibutuhkan (`Kernel:GetModule(name)`).
-- **Object Pooling:** (Target Roadmap Phase 3) `pool:Get()` dan `pool:Return(obj)`.
-- **Batched Operations:** Kirim update ganda dalam satu panggilan (Router).
-- **Performance Monitoring:** (Target Roadmap Phase 3) Deteksi operasi lambat.
+- **Layer 1: Input Validation (Modules)**
+  - `assert(typeof(param) == "string", "Invalid type")`
+- **Layer 2: System-Level Recovery (Core)**
+  - `pcall()` saat `require()` sistem
+  - Fallback ke legacy system jika baru gagal
+- **Layer 3: Network Resilience (Router)**
+  - Retry dengan exponential backoff
+  - Graceful degradation jika koneksi down
 
 ---
 
-## 9. SECURITY CONSIDERATIONS
+## 9. PERFORMANCE & OPTIMIZATION
 
-> **Sumber:** Diselamatkan dari `01_OVHL_ENGINE.md` (Legacy V2.2)
+### **Performance Budget**
 
-### 9.1 Server Authority Pattern
+- **Frame Time Impact:** ≤5ms maksimum per frame
+- **Memory Usage:** Kontrol pertumbuhan dengan lazy loading
+- **Load Time:** <3 detik inisialisasi engine
 
-- **NEVER trust client input.**
-- **BURUK ❌:** Client mengirim `Client:Fire("GiveMoney", 9999999)`.
-- **BAIK ✅:** Client mengirim `Client:Fire("PurchaseItem", itemId)`. Server memvalidasi harga, uang, dan izin.
+### **Optimization Strategies**
 
-### 9.2 Input Validation
-
-- Validasi selalu di server menggunakan whitelist, type check, dan schema.
-
-### 9.3 Rate Limiting
-
-- Mencegah abuse dengan `RateLimiter:CheckLimit(player, action)`.
+- **Lazy Loading:** Modul di-load saat dibutuhkan (Kernel)
+- **Object Pooling:** (Roadmap V1.1.0+) Reuse instances
+- **Batched Operations:** Kirim update ganda dalam satu RemoteEvent call
+- **Performance Monitoring:** (Roadmap V1.1.0+) Detect operasi lambat
 
 ---
 
 ## 10. TESTING STRATEGY
 
-> **Sumber:** Diselamatkan dari `01_OVHL_ENGINE.md` (Legacy V2.2)
+### **Test Types**
 
-### 10.1 Test Types
+- **Unit Tests:** Tes fungsi individual (misal: SmartLogger.spec.lua)
+- **Integration Tests:** Tes interaksi antar sistem (misal: SecurityPipeline)
+- **E2E Tests:** Tes workflow penuh (misal: UserJoin → DataLoad → Action → DataSave)
 
-- **Unit Tests:** Tes fungsi individual, mock dependencies (Contoh: `SmartLogger.spec.lua`).
-- **Integration Tests:** Tes interaksi antar sistem (Contoh: `DataFlow.spec.lua`).
-- **E2E Tests:** Tes skenario workflow penuh (Contoh: `FullWorkflow.spec.lua`).
-
-### 10.2 Test Structure
+### **Test Structure**
 
 ```text
 tests/
 ├── Unit/
 │   ├── SmartLogger.spec.lua
-│   ├── StateManager.spec.lua
-│   └── PermissionCore.spec.lua
+│   ├── InputValidator.spec.lua
+│   └── RateLimiter.spec.lua
 ├── Integration/
-│   ├── DataFlow.spec.lua
-│   └── ModuleCommunication.spec.lua
+│   ├── SecurityPipeline.spec.lua
+│   └── SystemRegistry.spec.lua
 └── E2E/
-    └── FullWorkflow.spec.lua
+    └── UserJoinFlow.spec.lua
 ```
 
 ---
 
-## 11. DOCUMENTATION STANDARDS (V3.4.0)
+## 11. DOCUMENTATION STANDARDS (V1.0.0)
 
-- **Standar Kode:** Standar Header/Footer V3.4.0 (Hukum #11 dan #12) menggantikan format LuaDoc lama.
-- **Dokumentasi Gameplay:** Modul _gameplay_ wajib didokumentasikan di `201_CONTRIBUTING_MODULE.md`.
-- **Dokumentasi Engine:** _Sistem_ engine wajib memiliki file API-nya sendiri di `210_API_REFERENCE/`.
+- **Code Standard:** Header/Footer V1.0.0 (Hukum #11 & #12)
+- **Module Docs:** Modul gameplay wajib documented di `201_CONTRIBUTING_MODULE.md`
+- **System Docs:** Sistem engine wajib punya file API sendiri di `210_API_REFERENCE/`
+- **Architecture Docs:** Keputusan besar logged di `302_ADR_LOG.md`
+
+---
+
+## 12. ROADMAP PHASES (Preview)
+
+### **V1.0.0 (CURRENT - Stable Release)**
+
+- ✅ 4-Phase Lifecycle
+- ✅ Foundation systems (Logger, Config)
+- ✅ Security pipeline
+- ✅ Networking (basic)
+- ✅ UI (Fusion + Native)
+- ✅ DataManager + PlayerManager
+
+### **V1.1.0 (Planned)**
+
+- Adapter Pattern (config-driven, PermissionCore + UIManager)
+- StateManager (Redux-like state management)
+- Enhanced NetworkingRouter (SendToAllClients, retry logic)
+- Performance monitoring
+
+### **V1.2.0 (Planned)**
+
+- Object pooling
+- Advanced optimization
+- Extended test coverage
+
+### **V2.0.0 (Future - Breaking Changes)**
+
+- Modular loading (load systems on-demand)
+- Advanced security (OAuth, SSO)
+- Analytics + telemetry
 
 ---
 

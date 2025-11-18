@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: ScannerContract (Types)
+@Path: ReplicatedStorage.OVHL.Types.ScannerContract
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.2.2
 @Component: ScannerContract (Core Types)
 @Path: ReplicatedStorage.OVHL.Types.ScannerContract
@@ -45,3 +53,11 @@ return nil
 @Version: 3.2.2
 @See: docs/ADR_V3-2-2.md (Nanti kita buat)
 --]]
+
+--[[
+@End: ScannerContract.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

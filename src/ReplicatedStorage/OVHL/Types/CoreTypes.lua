@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: CoreTypes (Core)
+@Path: ReplicatedStorage.OVHL.Types.CoreTypes
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - CORE TYPE DEFINITIONS
 Version: 3.0.0
 Path: ReplicatedStorage.OVHL.Types.CoreTypes
@@ -56,3 +64,11 @@ export type UIConfig = {
 }
 
 return nil
+
+--[[
+@End: CoreTypes.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

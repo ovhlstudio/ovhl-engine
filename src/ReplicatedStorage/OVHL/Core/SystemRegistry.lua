@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: SystemRegistry (Core)
+@Path: ReplicatedStorage.OVHL.Core.SystemRegistry
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.4.0 (ADR-004)
 @Component: SystemRegistry (Core Orchestrator)
 @Path: ReplicatedStorage.OVHL.Core.SystemRegistry
@@ -295,3 +303,11 @@ return SystemRegistry
 @Version: 3.4.0 (ADR-004)
 @See: docs/ADR_V3-3-0.md, docs/ADR_V3-4-0.md (Diusulkan)
 --]]
+
+--[[
+@End: SystemRegistry.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

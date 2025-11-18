@@ -1,186 +1,576 @@
 > START OF ./docs/200_USER_GUIDES/202_CONTRIBUTING_SYSTEM.md
 >
-> **OVHL ENGINE V3.4.0** > **STATUS:** FINAL & AUTHORITATIVE
+> **OVHL ENGINE V1.0.0** > **STATUS:** FINAL & AUTHORITATIVE
 > **AUDIENCE:** ENGINE ENGINEERS, CORE DEVELOPERS
-> **PURPOSE:** Panduan teknis untuk menambahkan **Sistem Engine** baru (misal: DataManager, SoundManager) ke dalam OVHL Core, sesuai Lifecycle V3.4.0.
+> **PURPOSE:** Panduan teknis untuk menambahkan Sistem Engine baru yang patuh 4-Phase Lifecycle dan OVHL standards.
 
 ---
 
-# 🛠️ 202_CONTRIBUTING_SYSTEM.MD (V3.4.0)
+# 🛠️ 202_CONTRIBUTING_SYSTEM.md (V1.0.0)
 
-> **REFERENSI:** Dokumen ini telah diperbarui untuk mencerminkan **Lifecycle 4-Fase (ADR-004)**.
-
----
-
-## 1. ⚠️ ATURAN EMAS (FILOSOFI)
-
-Pahami perbedaan fundamental ini:
-
-1.  **Knit Service (`Modules/`) = Logika Gameplay.**
-
-    - Tujuannya adalah _fitur_ (Inventory, Shop, Quest).
-    - Dipindai oleh `Kernel.lua`.
-
-2.  **OVHL System (`Systems/`) = Utilitas/Teknologi.**
-    - Tujuannya adalah _kemampuan_ (Logger, Validator, DataManager).
-    - Dipindai oleh `Bootstrap.lua`.
-
-**JANGAN TERTUKAR!**
+> **PENTING:** Pahami perbedaan **System** vs **Module** sebelum baca doc ini.
 
 ---
 
-## 2. LANGKAH IMPLEMENTASI (Contoh: `DataManager`)
+## 1. ⚠️ ATURAN EMAS (FUNDAMENTAL)
 
-Sistem OVHL bersifat **Auto-Discovery** (via `*Manifest.lua`).
+### **System vs Module - Bedanya Apa?**
 
-### Langkah 1: Tentukan Kategori
+| Aspek            | **System**                                     | **Module**                           |
+| ---------------- | ---------------------------------------------- | ------------------------------------ |
+| **Purpose**      | Teknologi inti (Logger, Security, UI)          | Fitur gameplay (Shop, Inventory)     |
+| **Location**     | `Systems/[Category]/`                          | `Modules/[ModuleName]/`              |
+| **Framework**    | Standalone (native Lua)                        | Knit Service/Controller              |
+| **Lifecycle**    | 4-Phase (Initialize, Register, Start, Destroy) | Knit lifecycle (KnitInit, KnitStart) |
+| **Dependencies** | Declared via `*Manifest.lua`                   | Declared via `self.OVHL:GetSystem()` |
+| **Contoh**       | SmartLogger, DataManager, UIEngine             | MinimalModule, InventoryModule       |
 
-Pilih folder di `src/ReplicatedStorage/OVHL/Systems/`:
+**PENTING:** Jangan tukar! System = Core infrastructure. Module = Gameplay logic.
 
-- `Foundation/`: Sangat dasar (Logger, Config).
-- `Security/`: Keamanan (Validator, RateLimiter).
-- `UI/`: Teknologi UI (UIEngine).
-- `Networking/`: Transport layer (Router).
-- `Adapters/`: Jembatan ke API pihak ketiga.
-- `Advanced/`: Fitur kompleks lain (Target: `DataManager`, `StateManager`).
+---
 
-### Langkah 2: Template System
+## 2. KONSEP: 4-PHASE LIFECYCLE (ADR-004)
 
-Buat `ModuleScript` baru (misal: `DataManager.lua`) menggunakan template V3.4.0.
+Semua system **WAJIB** implement 4-fase ini. Ini mandatory pattern.
+
+### **FASE 1: Initialize(logger)**
+
+**Purpose:** Konstruksi objek + siapkan variabel.
+
+**Constraints:**
+
+- ✅ BOLEH: Simpan logger, init variables, setup internal state
+- ❌ TIDAK BOLEH: `OVHL:GetSystem()` (sistem lain belum terdaftar)
+- ❌ TIDAK BOLEH: `.Connect()` events
+- ❌ TIDAK BOLEH: `task.spawn()` background task
+
+**Why?** Karena pada fase ini, sistem lain baru di-init juga. Jika lu panggil `GetSystem("B")` sebelum B di-init, hasilnya nil.
+
+**Code Template:**
 
 ```lua
---[[
-OVHL ENGINE V3.4.0
-@Component: MyNewSystem (Core System)
-@Path: ReplicatedStorage.OVHL.Systems.Advanced.MyNewSystem
-@Purpose: Templat untuk sistem baru.
---]]
+function MySystem:Initialize(logger)
+    self._logger = logger  -- ✅ OK
+    self._data = {}        -- ✅ OK
+    self._connections = {} -- ✅ OK
 
-local MySystem = {}
-MySystem.__index = MySystem
-
-function MySystem.new()
-    local self = setmetatable({}, MySystem)
-    self._logger = nil
-    self._connections = {} -- Wajib: untuk Disconnect
-    self._isRunning = false -- Wajib: untuk task.spawn cleanup
-    return self
+    -- ❌ JANGAN:
+    -- self._dependency = OVHL:GetSystem("OtherSystem")
+    -- self._connections.event = game.Something:Connect(function() end)
+    -- task.spawn(function() ... end)
 end
-
--- [...] (LANJUTKAN DENGAN IMPLEMENTASI FUNGSI 4-FASE DI BAWAH)
-
-return MySystem
-
---[[
-@End: MyNewSystem.lua
-@Version: 3.4.0
-@See: docs/200_USER_GUIDES/202_CONTRIBUTING_SYSTEM.md
---]]
-```
-
-### Langkah 3: Daftarkan Dependensi (KRITIS!)
-
-Buat file `MyNewSystemManifest.lua` di sebelah `MyNewSystem.lua` untuk deklarasi dependensi dan konteks.
-
-```lua
--- MyNewSystemManifest.lua
-return {
-	name = "MyNewSystem",
-	dependencies = { "SmartLogger", "DependencyLain" },
-	context = "Shared" -- Server, Client, atau Shared
-}
 ```
 
 ---
 
-## 3. MANDATORY FUNCTIONS (V3.4.0 Lifecycle)
+### **FASE 2: Register (Internal)**
 
-Semua Sistem harus mendefinisikan fungsi-fungsi berikut untuk berinteraksi dengan **SystemRegistry**.
+**Purpose:** SystemRegistry diam-diam register sistem ke OVHL gateway.
 
-### A. System:Initialize(logger) (Fase 1: Konstruksi)
+**What happens (automatic, tidak perlu implement):**
 
-Ini adalah fase pertama dari bootup. Sistem Anda hanya boleh menerima referensi logger dan menyiapkan variabel lokal.
+- Semua sistem yg sudah di-Initialize sekarang terdaftar di OVHL
+- `OVHL:GetSystem(name)` mulai aman dipanggil
 
-**MANDAT TUGAS:**
+**Hidden dari system perspective** - lu tidak usah implement ini.
 
-1.  Simpan logger: `self._logger = logger`.
-2.  Siapkan variabel.
+---
 
-**MANDAT LARANGAN:**
+### **FASE 3: Start()**
 
-1.  **DILARANG KERAS** memanggil `OVHL:GetSystem()`.
-2.  **DILARANG KERAS** menghubungkan event (misalnya `game.Players.PlayerAdded:Connect()`).
-3.  **DILARANG KERAS** memulai _loop_ `task.spawn()` atau tugas asinkron lainnya.
+**Purpose:** Aktivasi - resolve dependensi, hubung event, mulai task.
 
-### B. System:Start() (Fase 3: Aktivasi)
+**Constraints (NOW SAFE):**
 
-Ini adalah fase aktivasi. Semua dependensi sistem dijamin sudah terdaftar di `OVHL` (melalui Fase 2).
+- ✅ BOLEH: `OVHL:GetSystem()` (semua sudah terdaftar)
+- ✅ BOLEH: `.Connect()` events
+- ✅ BOLEH: `task.spawn()` background tasks
+- ✅ BOLEH: Load external services (DataStore, API, etc)
 
-**MANDAT TUGAS:**
+**Why split dari Fase 1?** Agar **resolve dependensi aman**. Contoh:
 
-1.  **Resolusi Dependensi:** Panggil `OVHL:GetSystem("Dependency")`.
-2.  **Koneksi Event:** Hubungkan semua _event_ (misalnya `Players.PlayerAdded:Connect()`). Simpan koneksi di `self._connections`.
-3.  **Mulai Task:** Jalankan _loop_ atau tugas background. Gunakan _flag_ `self._isRunning`.
+- `PlayerManager:Start()` bisa safely call `OVHL:GetSystem("DataManager")`
+- Karena DataManager sudah fully initialize (Fase 1) + registered (Fase 2)
+
+**Code Template:**
 
 ```lua
 function MySystem:Start()
-    local OVHL = require(script.Parent.Parent.Parent.Core.OVHL)
-    self._dataManager = OVHL:GetSystem("DataManager") -- AMAN di Fase 3
+    local OVHL = require(...)
 
+    -- ✅ OK: Sekarang aman ambil dependensi
+    self._logger = OVHL:GetSystem("SmartLogger")
+    self._dataManager = OVHL:GetSystem("DataManager")
+
+    -- ✅ OK: Hubung events
+    self._connections = {}
+    self._connections.playerAdded = game:GetService("Players").PlayerAdded:Connect(function(player)
+        self:_onPlayerAdded(player)
+    end)
+
+    -- ✅ OK: Mulai background task
     self._isRunning = true
-    self:_startCleanupTask() -- task.spawn(while self._isRunning do...
-
-    self.Connections.PlayerAdded = Players.PlayerAdded:Connect(self.OnPlayerAdded)
+    task.spawn(function()
+        while self._isRunning do
+            task.wait(300)
+            self:_cleanupOldData()
+        end
+    end)
 end
 ```
 
-### C. System:Destroy() (Fase 4: Cleanup/Shutdown)
+---
 
-**Fungsi ini WAJIB diimplementasikan** jika sistem Anda menggunakan `Connect()` atau `task.spawn()`. Dipanggil oleh `SystemRegistry` saat `game:BindToClose()`.
+### **FASE 4: Destroy() (Optional tapi RECOMMENDED)**
 
-**MANDAT TUGAS:**
+**Purpose:** Cleanup sebelum shutdown.
 
-1.  **Stop Tasks:** Gunakan _flag_ `self._isRunning = false` untuk menghentikan semua `task.spawn()` _loop_ Anda.
-2.  **Final Save:** Jika Anda adalah _Data Manager_, pastikan semua data tersimpan.
-3.  **Disconnect:** Putuskan semua koneksi event yang tersimpan di `self._connections`.
+**When triggered:** `game:BindToClose()` → `SystemRegistry:Shutdown()`
+
+**Important:** SystemRegistry panggil `:Destroy()` dalam **REVERSE ORDER**.
+
+- Kenapa? Karena Logger dependency-nya banyak system. Jika destroy duluan, sistem lain crash.
+- Reverse order ensure Logger destroy paling akhir.
+
+**Constraints (Must cleanup):**
+
+- ✅ BOLEH: Stop background tasks
+- ✅ BOLEH: Disconnect events
+- ✅ BOLEH: Save data
+- ✅ BOLEH: Log cleanup status
+
+**Code Template:**
 
 ```lua
--- Contoh wajib untuk PlayerManager atau RateLimiter:
 function MySystem:Destroy()
-    self._logger:Info("SYSTEM", "Menjalankan Fase 4: Cleanup.")
+    self._logger:Info("MYSYSTEM", "Fase 4 (Destroy) triggered")
 
-    -- 1. Hentikan loop task.spawn
+    -- 1. Stop background task
     self._isRunning = false
 
-    -- 2. Disconnect semua koneksi event
-    for name, conn in pairs(self._connections) do
-        conn:Disconnect()
-        self._connections[name] = nil
+    -- 2. Disconnect events
+    for name, connection in pairs(self._connections) do
+        pcall(function() connection:Disconnect() end)
+    end
+    self._connections = {}
+
+    -- 3. Save data (jika ada)
+    self:_saveCriticalData()
+
+    self._logger:Info("MYSYSTEM", "Cleanup complete")
+end
+```
+
+**PENTING:** Wrap `:Disconnect()` dalam `pcall()` jika tidak pasti connection ada.
+
+---
+
+## 3. STEP-BY-STEP: MEMBUAT SYSTEM BARU
+
+Mari kita bikin **SoundManager** system sebagai contoh.
+
+### **Step 1: Tentukan Kategori**
+
+Pilih folder di `Systems/`:
+
+- `Foundation/` - Sangat dasar (Logger, Config)
+- `Security/` - Keamanan (Validator, RateLimiter)
+- `Networking/` - Transport (Router, RemoteBuilder)
+- `UI/` - UI frameworks (UIEngine, UIManager)
+- `Advanced/` - Complex stuff (DataManager, PlayerManager, NotificationService)
+
+**Keputusan:** SoundManager → `Systems/Advanced/` (karena complex)
+
+---
+
+### **Step 2: Buat Main File + Manifest**
+
+**File 1: `SoundManager.lua`**
+
+```lua
+--[[
+OVHL ENGINE V1.0.0
+@Component: SoundManager (Core System)
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.SoundManager
+@Purpose: Centralized sound playback + management
+@Stability: BETA
+--]]
+
+local SoundManager = {}
+SoundManager.__index = SoundManager
+
+function SoundManager.new()
+    local self = setmetatable({}, SoundManager)
+    self._logger = nil
+    self._sounds = {}        -- {soundId = Instance}
+    self._volumes = {}       -- {category = volume}
+    self._connections = {}
+    self._isRunning = false
+    return self
+end
+
+-- FASE 1: Initialize (construction only)
+function SoundManager:Initialize(logger)
+    self._logger = logger
+    self._logger:Info("SOUNDMANAGER", "Sound Manager initialized")
+end
+
+-- FASE 3: Start (activation)
+function SoundManager:Start()
+    self._isRunning = true
+    self._logger:Info("SOUNDMANAGER", "Sound Manager started")
+end
+
+-- FASE 4: Destroy (cleanup)
+function SoundManager:Destroy()
+    self._logger:Info("SOUNDMANAGER", "Shutting down...")
+
+    self._isRunning = false
+
+    -- Stop semua sound
+    for _, sound in pairs(self._sounds) do
+        pcall(function() sound:Destroy() end)
+    end
+    self._sounds = {}
+
+    self._logger:Info("SOUNDMANAGER", "Shutdown complete")
+end
+
+-- PUBLIC API
+function SoundManager:PlaySound(soundId, parent, volume)
+    if not self._isRunning then return nil end
+
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. soundId
+    sound.Volume = volume or 0.5
+    sound.Parent = parent or workspace
+    sound:Play()
+
+    self._sounds[soundId] = sound
+
+    self._logger:Debug("SOUNDMANAGER", "Playing sound", { soundId = soundId })
+    return sound
+end
+
+function SoundManager:StopSound(soundId)
+    local sound = self._sounds[soundId]
+    if sound then
+        sound:Stop()
+        self._sounds[soundId] = nil
+        return true
+    end
+    return false
+end
+
+return SoundManager
+
+--[[
+@End: SoundManager.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+```
+
+**File 2: `SoundManagerManifest.lua`**
+
+```lua
+--[[
+OVHL ENGINE V1.0.0
+@Component: SoundManager Manifest
+@Path: ReplicatedStorage.OVHL.Systems.Advanced.SoundManagerManifest
+@Purpose: Declare dependencies untuk SoundManager
+@Stability: STABLE
+--]]
+
+return {
+    name = "SoundManager",
+    dependencies = { "SmartLogger" },  -- Hanya depend logger
+    context = "Client"                  -- Load hanya di client (sounds hanya client-side)
+}
+
+--[[
+@End: SoundManagerManifest.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+```
+
+---
+
+### **Step 3: File Structure**
+
+Setelah buat, struktur folder jadi:
+
+```
+Systems/Advanced/
+├── DataManager.lua
+├── DataManagerManifest.lua
+├── PlayerManager.lua
+├── PlayerManagerManifest.lua
+├── NotificationService.lua
+├── NotificationServiceManifest.lua
+├── SoundManager.lua                    ← NEW
+├── SoundManagerManifest.lua            ← NEW
+├── ...
+```
+
+---
+
+### **Step 4: Use System di Modul**
+
+Sekarang modul bisa akses SoundManager:
+
+```lua
+-- Di ShopService.lua
+function ShopService:KnitInit()
+    self.OVHL = require(...)
+    self.Logger = self.OVHL:GetSystem("SmartLogger")
+    self.SoundManager = self.OVHL:GetSystem("SoundManager")  -- ✅ NEW
+end
+
+function ShopService:ProcessPurchase(player, itemId)
+    -- ... security checks ...
+
+    -- Mainkan sound saat berhasil
+    if success then
+        self.SoundManager:PlaySound("123456789", workspace, 0.8)
     end
 end
 ```
 
 ---
 
-## 4. INTEGRASI DENGAN KNIT SERVICE
+### **Step 5: Test**
 
-Cara **Modul Gameplay (Knit)** menggunakan **Sistem Engine (OVHL)** yang baru Anda buat.
+Play test di Studio:
+
+```
+1. Server boot → lihat log "Sound Manager started"
+2. Purchase item → lihat log "Playing sound"
+3. Game close → lihat log "Shutdown complete"
+```
+
+Ensure **no nil errors**, **no memory leaks**.
+
+---
+
+## 4. ADVANCED: SYSTEM DENGAN DEPENDENCIES
+
+Kalau system lu depend sistem lain (bukan hanya Logger):
+
+**Example: `NotificationService` depend `NetworkingRouter`**
+
+### **Manifest:**
 
 ```lua
--- Di dalam InventoryService.lua
-function InventoryService:KnitInit()
-    -- 1. Dapatkan API Gateway
-    self.OVHL = require(game.ReplicatedStorage.OVHL.Core.OVHL)
+return {
+    name = "NotificationService",
+    dependencies = { "SmartLogger", "NetworkingRouter" },  -- Multiple deps
+    context = "Server"
+}
+```
 
-    -- 2. Panggil Sistem (Bukan Service)
-    -- Knit Init aman karena OVHL sudah stabil sejak Fase 2.
-    self.DataManager = self.OVHL:GetSystem("DataManager")
+### **Code:**
+
+```lua
+function NotificationService:Start()
+    local OVHL = require(...)
+
+    -- Resolve dependencies (SAFE di Fase 3)
+    self._logger = OVHL:GetSystem("SmartLogger")
+    self._router = OVHL:GetSystem("NetworkingRouter")
+
+    if not self._router then
+        self._logger:Critical("NOTIFICATION", "Router not available!")
+        return
+    end
+
+    self._logger:Info("NOTIFICATION", "Notification Service ready")
 end
 
-function InventoryService:LoadInventory(player)
-    -- 3. Gunakan Sistem
-    local data = self.DataManager:LoadData(player)
-    -- ...
+function NotificationService:SendToPlayer(player, message, icon)
+    if not self._router then return end
+
+    self._router:SendToClient(player, "OVHL.Notification.Show", {
+        Message = message,
+        Icon = icon or "Info"
+    })
+end
+```
+
+### **SystemRegistry akan otomatis:**
+
+1. Initialize NotificationService **SETELAH** NetworkingRouter (dependency order)
+2. Register semua sistem
+3. Start NotificationService (NetworkingRouter sudah siap)
+
+**Key:** Declare di Manifest, resolve di Start(), use dengan aman.
+
+---
+
+## 5. COMMON PATTERNS
+
+### **Pattern 1: Background Task dengan Cleanup**
+
+```lua
+function MySystem:Start()
+    self._isRunning = true
+    task.spawn(function()
+        while self._isRunning do
+            self:_doWork()
+            task.wait(60)
+        end
+    end)
+end
+
+function MySystem:Destroy()
+    self._isRunning = false  -- Flag stop loop
+    task.wait(0.1)           -- Brief wait untuk loop notice
+    self._logger:Info("MYSYSTEM", "Shutdown complete")
+end
+```
+
+### **Pattern 2: Event Connection dengan Cleanup**
+
+```lua
+function MySystem:Start()
+    self._connections = {}
+
+    self._connections.event1 = game.Something:Connect(function()
+        self:_onEvent()
+    end)
+end
+
+function MySystem:Destroy()
+    for name, conn in pairs(self._connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    self._connections = {}
+end
+```
+
+### **Pattern 3: External Service Connection (DataStore, API)**
+
+```lua
+function MySystem:Start()
+    local success, result = pcall(function()
+        self._dataStore = game:GetService("DataStoreService"):GetDataStore("MyData")
+        return true
+    end)
+
+    if success then
+        self._logger:Info("MYSYSTEM", "Connected to DataStore")
+    else
+        self._logger:Critical("MYSYSTEM", "Failed to connect DataStore", { error = result })
+    end
+end
+
+function MySystem:Destroy()
+    -- DataStore tidak perlu explicit cleanup, GC handle
+    self._logger:Info("MYSYSTEM", "Shutdown")
+end
+```
+
+---
+
+## 6. INTEGRATION: HOW SYSTEMS WORK TOGETHER
+
+Contoh flow kompleks:
+
+```
+PlayerManager:Start()
+    ↓
+Resolve DataManager via OVHL:GetSystem("DataManager")
+    ↓
+Connect Players.PlayerAdded event
+    ↓
+Player join → PlayerManager:_onPlayerAdded(player)
+    ↓
+Call DataManager:LoadData(player)
+    ↓
+DataManager fetch dari DataStore
+    ↓
+Player data loaded
+    ↓
+NotificationService send "Welcome" notification ke client
+    ↓
+Client receive via NetworkingRouter
+    ↓
+UI show notification
+```
+
+**Key:** Sistem terpisah tapi bisa berkomunikasi via OVHL gateway.
+
+---
+
+## 7. VALIDATION CHECKLIST (SEBELUM SUBMIT)
+
+- [ ] File `.lua` + `*Manifest.lua` ada
+- [ ] Manifest punya `name`, `dependencies`, `context`
+- [ ] `:Initialize(logger)` hanya init variables (no GetSystem)
+- [ ] `:Start()` punya GetSystem + Connect + task.spawn (jika ada)
+- [ ] `:Destroy()` cleanup (disconnect, stop task) - jika ada
+- [ ] Header + footer V1.0.0 lengkap
+- [ ] No placeholder / ellipsis
+- [ ] Logger.Info di Start + Destroy
+- [ ] Test di studio: boot + shutdown smooth
+- [ ] No nil errors, no memory leak
+
+---
+
+## 8. TROUBLESHOOTING
+
+### **Error: "Circular Dependency detected"**
+
+**Cause:** System A depend B, B depend A
+
+**Fix:** Remove dependency dari salah satu
+
+```lua
+-- WRONG:
+-- A depend B
+-- B depend A
+
+-- RIGHT:
+-- A depend B (saja)
+-- B tidak depend A (gunakan event atau callback instead)
+```
+
+---
+
+### **Error: "GetSystem() returned nil"**
+
+**Cause:** Call `OVHL:GetSystem()` di Fase 1 (Initialize)
+
+**Fix:** Move ke Fase 3 (Start)
+
+```lua
+-- WRONG:
+function MySystem:Initialize(logger)
+    self._other = OVHL:GetSystem("OtherSystem")  -- nil!
+end
+
+-- RIGHT:
+function MySystem:Start()
+    self._other = OVHL:GetSystem("OtherSystem")  -- safe
+end
+```
+
+---
+
+### **Error: "Memory leak - connections not disconnected"**
+
+**Cause:** Forgot to implement `:Destroy()` atau tidak disconnect
+
+**Fix:** Implement Destroy + disconnect
+
+```lua
+function MySystem:Destroy()
+    for name, conn in pairs(self._connections) do
+        pcall(function() conn:Disconnect() end)  -- cleanup
+    end
 end
 ```
 

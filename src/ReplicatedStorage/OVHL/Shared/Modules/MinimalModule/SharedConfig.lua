@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: SharedConfig (Module)
+@Path: ReplicatedStorage.OVHL.Shared.Modules.MinimalModule.SharedConfig
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE CONFIG (HD ADMIN STYLE)
 Version: 3.1.0
 Path: ReplicatedStorage.OVHL.Shared.Modules.MinimalModule.SharedConfig
@@ -49,3 +57,11 @@ return {
         }
     }
 }
+
+--[[
+@End: SharedConfig.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

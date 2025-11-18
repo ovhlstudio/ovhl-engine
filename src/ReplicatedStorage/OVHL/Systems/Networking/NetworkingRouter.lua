@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: NetworkingRouter (Networking)
+@Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkingRouter
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.3.0 (FINAL)
 @Component: NetworkingRouter (Core System)
 @Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkingRouter
@@ -129,3 +137,11 @@ return NetworkingRouter
 @Version: 3.3.0 (Two-Phase Init)
 @See: docs/ADR_V3-3-0.md
 --]]
+
+--[[
+@End: NetworkingRouter.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+

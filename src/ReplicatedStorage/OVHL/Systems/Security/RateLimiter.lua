@@ -1,4 +1,12 @@
 --[[
+OVHL ENGINE V1.0.0
+@Component: RateLimiter (Security)
+@Path: ReplicatedStorage.OVHL.Systems.Security.RateLimiter
+@Purpose: [TODO: Add purpose]
+@Stability: STABLE
+--]]
+
+--[[
 OVHL ENGINE V3.4.0 (ADR-004)
 @Component: RateLimiter (Core System)
 @Path: ReplicatedStorage.OVHL.Systems.Security.RateLimiter
@@ -196,3 +204,11 @@ return RateLimiter
 @Version: 3.4.0 (ADR-004)
 @See: docs/ADR_V3-3-0.md, docs/ADR_V3-4-0.md (Diusulkan)
 --]]
+
+--[[
+@End: RateLimiter.lua
+@Version: 1.0.0
+@LastUpdate: 2025-11-18
+@Maintainer: OVHL Core Team
+--]]
+
