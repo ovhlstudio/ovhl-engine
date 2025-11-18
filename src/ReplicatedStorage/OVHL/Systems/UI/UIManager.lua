@@ -1,8 +1,8 @@
 --[[
-OVHL ENGINE V1.0.0
+OVHL FRAMEWORK V.1.0.1
 @Component: UIManager (UI)
 @Path: ReplicatedStorage.OVHL.Systems.UI.UIManager
-@Purpose: Screen lifecycle & Adapter-based Navbar management
+@Purpose: Screen lifecycle & Adapter-based Navbar management (Fixed Config)
 @Stability: STABLE
 --]]
 
@@ -15,160 +15,126 @@ function UIManager.new()
     self._screens = {}
     self._eventBindings = {}
     self._adapter = nil
+    self._fallbackAdapter = nil
     self._adapterName = nil
     return self
 end
 
 function UIManager:Initialize(logger)
-    if not logger then error("UIManager requires logger") end
     self._logger = logger
-    
-    local success, engineConfig = pcall(function()
-        return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig)
-    end)
-    
-    if success and engineConfig and engineConfig.Adapters then
-        self._adapterName = engineConfig.Adapters.Navbar or "InternalAdapter"
-    else
-        self._logger:Warn("UIMANAGER", "Failed to load EngineConfig, defaulting navbar to Internal")
-        self._adapterName = "InternalAdapter"
-    end
-    
-    self._logger:Info("UIMANAGER", "UI Manager initialized", {navbar = self._adapterName})
+    local success, cfg = pcall(function() return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig) end)
+    self._adapterName = (success and cfg.Adapters and cfg.Adapters.Navbar) or "InternalAdapter"
+    self._logger:Info("UIMANAGER", "Init", {navbar = self._adapterName})
 end
 
 function UIManager:Start()
-    local adapterFolder = script.Parent.Parent.Adapters.Navbar
-    local adapterModule = adapterFolder:FindFirstChild(self._adapterName)
-    
-    if not adapterModule then
-        self._logger:Warn("UIMANAGER", "Navbar adapter not found, fallback to Internal", {adapter = self._adapterName})
-        adapterModule = adapterFolder:FindFirstChild("InternalAdapter")
+    local folder = script.Parent.Parent.Adapters.Navbar
+    local mod = folder:FindFirstChild(self._adapterName)
+    if mod then
+        local cls = require(mod)
+        self._adapter = cls.new()
+        if self._adapter.Initialize then self._adapter:Initialize(self._logger) end
     end
-    
-    if adapterModule then
-        local success, AdapterClass = pcall(require, adapterModule)
-        if success then
-            self._adapter = AdapterClass.new()
-            if self._adapter.Initialize then
-                self._adapter:Initialize(self._logger)
-            end
-            self._logger:Info("UIMANAGER", "Navbar adapter loaded", {adapter = adapterModule.Name})
-        else
-            self._logger:Critical("UIMANAGER", "Failed to require navbar adapter", {error = tostring(AdapterClass)})
-        end
+    local fallbackMod = folder:FindFirstChild("InternalAdapter")
+    if fallbackMod then
+        local cls = require(fallbackMod)
+        self._fallbackAdapter = cls.new()
+        if self._fallbackAdapter.Initialize then self._fallbackAdapter:Initialize(self._logger) end
     end
 end
 
 function UIManager:RegisterScreen(screenName, screenInstance)
-    self._screens[screenName] = {
-        Instance = screenInstance,
-        Enabled = false
-    }
-    self._logger:Debug("UIMANAGER", "Screen registered", {screen = screenName})
+    self._screens[screenName] = { Instance = screenInstance, Enabled = false }
+    self._logger:Debug("UIMANAGER", "Screen registered", {name=screenName})
 end
 
 function UIManager:ShowScreen(screenName)
-    local screen = self._screens[screenName]
-    if not screen then return false end
-    screen.Instance.Enabled = true
-    screen.Enabled = true
-    return true
+    local s = self._screens[screenName]
+    if s then 
+        s.Instance.Enabled = true
+        s.Enabled = true 
+        self._logger:Debug("UIMANAGER", "Show Screen", {name=screenName})
+        return true 
+    end
+    self._logger:Warn("UIMANAGER", "Show failed: Screen not found", {name=screenName})
+    return false
 end
 
 function UIManager:HideScreen(screenName)
-    local screen = self._screens[screenName]
-    if not screen then return false end
-    screen.Instance.Enabled = false
-    screen.Enabled = false
-    return true
+    local s = self._screens[screenName]
+    if s then 
+        s.Instance.Enabled = false
+        s.Enabled = false 
+        return true 
+    end
+    return false
 end
 
 function UIManager:ToggleScreen(screenName)
-    local screen = self._screens[screenName]
-    if not screen then return false end
-    if screen.Enabled then return self:HideScreen(screenName) else return self:ShowScreen(screenName) end
+    local s = self._screens[screenName]
+    if not s then 
+        self._logger:Warn("UIMANAGER", "Toggle failed: Screen not found", {name=screenName})
+        return false 
+    end
+    if s.Enabled then return self:HideScreen(screenName) else return self:ShowScreen(screenName) end
 end
 
--- [FIXED] SetupTopbar now smarter at finding config
-function UIManager:SetupTopbar(moduleName, config)
-    -- 1. Cari Config Topbar (Support Root atau nested UI)
-    local topbarConfig = config.Topbar
-    if not topbarConfig and config.UI and config.UI.Topbar then
-        topbarConfig = config.UI.Topbar
+-- [PHASE 3 FIX] Smart Setup Topbar (Auto-fetch Config)
+function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
+    -- FIX: Jangan percaya parameter config mentah. Ambil Full Config via OVHL.
+    local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
+    local fullConfig = OVHL.GetClientConfig(moduleName)
+    
+    if not fullConfig then
+        self._logger:Warn("UIMANAGER", "Gagal load config untuk Topbar", {module=moduleName})
+        return false
+    end
+    
+    -- Resolusi config Topbar (Bisa di root, atau di dalam UI)
+    local topbarConfig = fullConfig.Topbar or (fullConfig.UI and fullConfig.UI.Topbar)
+    
+    if not topbarConfig or not topbarConfig.Enabled then 
+        -- Silent return, mungkin memang tidak ada topbar
+        return nil 
     end
 
-    -- 2. Validasi Config
-    if not topbarConfig or not topbarConfig.Enabled then
-        -- Silent return is OK (module doesn't want topbar)
-        return nil
+    -- PRIORITY: Explicit OnClick > Config OnClick
+    if explicitOnClick then
+        topbarConfig.OnClick = explicitOnClick
+    elseif not topbarConfig.OnClick then
+         self._logger:Warn("UIMANAGER", "Topbar setup without OnClick handler", {module=moduleName})
+         return false
     end
     
-    -- 3. Cek Adapter
-    if not self._adapter then
-        self._logger:Warn("UIMANAGER", "Cannot setup topbar: Adapter not ready")
-        return nil
+    -- TRY MAIN ADAPTER
+    local success = false
+    if self._adapter then
+        success = self._adapter:AddButton(moduleName, topbarConfig)
     end
     
-    -- 4. Inject Default Click Handler jika kosong
-    if not topbarConfig.OnClick then
-        topbarConfig.OnClick = function()
-            -- Coba toggle MainUI secara default
-            local mainScreenName = "MainUI"
-            if config.UI and config.UI.Screens and config.UI.Screens.MainUI then
-                -- Support custom screen names in future if needed
-            end
-            self:ToggleScreen(mainScreenName)
+    -- FALLBACK
+    if not success then
+        if self._fallbackAdapter then
+            self._logger:Warn("UIMANAGER", "Main Adapter failed, using Fallback", {module=moduleName})
+            success = self._fallbackAdapter:AddButton(moduleName, topbarConfig)
+        else
+            self._logger:Critical("UIMANAGER", "No Navbar Adapter available!")
         end
-    end
-    
-    -- 5. Eksekusi Adapter
-    local success = self._adapter:AddButton(moduleName, topbarConfig)
-    
-    if success then
-        self._logger:Debug("UIMANAGER", "Topbar button created", {module = moduleName})
-    else
-        self._logger:Warn("UIMANAGER", "Adapter failed to create button", {module = moduleName})
     end
     
     return success
 end
 
 function UIManager:FindComponent(screenName, componentName)
-    local screen = self._screens[screenName]
-    if not screen then return nil end
-    
-    local function findRecursive(parent, name)
-        for _, child in ipairs(parent:GetChildren()) do
-            if child.Name == name then return child end
-            local found = findRecursive(child, name)
-            if found then return found end
-        end
-        return nil
-    end
-    return findRecursive(screen.Instance, componentName)
+    local s = self._screens[screenName]
+    if not s then return nil end
+    return s.Instance:FindFirstChild(componentName, true)
 end
 
 function UIManager:BindEvent(component, eventName, callback)
-    if not component or not component[eventName] then return false end
-    local connection = component[eventName]:Connect(callback)
-    if not self._eventBindings[component] then self._eventBindings[component] = {} end
-    table.insert(self._eventBindings[component], connection)
+    if not component then return false end
+    component[eventName]:Connect(callback)
     return true
 end
 
-function UIManager:CleanupModule(moduleName)
-    if self._adapter and self._adapter.RemoveButton then
-        self._adapter:RemoveButton(moduleName)
-    end
-    -- Event cleanup logic here...
-    self._logger:Info("UIMANAGER", "Module cleanup completed", {module = moduleName})
-end
-
 return UIManager
-
---[[
-@End: UIManager.lua
-@Version: 1.0.2 (Fixed Config Path Bug)
-@LastUpdate: 2025-11-18
---]]

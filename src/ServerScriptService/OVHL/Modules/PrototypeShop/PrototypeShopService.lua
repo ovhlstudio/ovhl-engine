@@ -15,13 +15,13 @@ local PrototypeShopService = Knit.CreateService {
 
 function PrototypeShopService:KnitInit()
     self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-    self.Logger = self.OVHL:GetSystem("SmartLogger")
-    self.InputValidator = self.OVHL:GetSystem("InputValidator")
-    self.RateLimiter = self.OVHL:GetSystem("RateLimiter")
-    self.PermissionCore = self.OVHL:GetSystem("PermissionCore")
+    self.Logger = self.OVHL.GetSystem("SmartLogger")
+    self.InputValidator = self.OVHL.GetSystem("InputValidator")
+    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
+    self.PermissionCore = self.OVHL.GetSystem("PermissionCore")
     
     -- LOAD CONFIG
-    self.Config = self.OVHL:GetConfig("PrototypeShop", nil, "Server")
+    self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
     
     -- REGISTER SECURITY (CRITICAL STEP)
     self:_registerSecurity()

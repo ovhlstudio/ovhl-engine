@@ -2,21 +2,13 @@
 OVHL ENGINE V1.0.0
 @Component: RateLimiterManifest (Security)
 @Path: ReplicatedStorage.OVHL.Systems.Security.RateLimiterManifest
-@Purpose: [TODO: Add purpose]
+@Purpose: Manifest file for RateLimiter
 @Stability: STABLE
 --]]
 
--- V3.2.3 (HOTFIX): Menambahkan context
+-- [PHASE 1 FIX] Pindah ke Server (Context: Server)
 return {
     name = "RateLimiter",
     dependencies = {"SmartLogger", "ConfigLoader"},
-    context = "Shared"
+    context = "Server" -- SECURITY FIX: Server only
 }
-
---[[
-@End: RateLimiterManifest.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-

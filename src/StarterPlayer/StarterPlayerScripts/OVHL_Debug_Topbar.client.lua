@@ -72,7 +72,7 @@ local successOVHL, OVHL = pcall(function()
 end)
 
 if successOVHL then
-    local config = OVHL:GetClientConfig("ProtoType_CekAdapter")
+    local config = OVHL.GetClientConfig("ProtoType_CekAdapter")
     if config then
         print("✅ [4] Config ProtoType ditemukan")
         print("      Topbar Enabled:", config.UI.Topbar.Enabled)

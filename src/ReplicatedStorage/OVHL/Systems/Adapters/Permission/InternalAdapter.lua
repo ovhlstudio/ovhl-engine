@@ -81,7 +81,7 @@ function InternalAdapter:CheckPermission(player, permissionNode)
     
     -- Get required rank from config
     local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
-    local config = OVHL:GetConfig(module, nil, "Server")
+    local config = OVHL.GetConfig(module, nil, "Server")
     
     if not config or not config.Permissions then
         -- No permission config, allow by default

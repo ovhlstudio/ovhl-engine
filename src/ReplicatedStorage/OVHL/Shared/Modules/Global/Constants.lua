@@ -8,7 +8,7 @@ OVHL ENGINE V1.0.0
 
 --[[
 OVHL ENGINE V3.0.0 - GLOBAL CONSTANTS
-Version: 3.0.0
+Version: 1.0.1
 Path: ReplicatedStorage.OVHL.Shared.Modules.Global.Constants
 --]]
 

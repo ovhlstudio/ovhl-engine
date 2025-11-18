@@ -1,134 +1,108 @@
 --[[
-OVHL ENGINE V1.0.0
+OVHL FRAMEWORK V.1.0.1
 @Component: InternalAdapter (Navbar)
 @Path: ReplicatedStorage.OVHL.Systems.Adapters.Navbar.InternalAdapter
-@Purpose: Native UI Navbar implementation (Fallback for TopbarPlus)
+@Purpose: Native UI Navbar (High Visibility & IDEMPOTENT)
 @Stability: STABLE
 --]]
 
 local InternalAdapter = {}
 InternalAdapter.__index = InternalAdapter
-
 local Players = game:GetService("Players")
 
 function InternalAdapter.new()
     local self = setmetatable({}, InternalAdapter)
     self._logger = nil
-    self._buttons = {} -- {id = {config, instance}}
     self._gui = nil
     self._container = nil
+    self._buttons = {} -- Cache registry
     return self
 end
 
 function InternalAdapter:Initialize(logger)
     self._logger = logger
-    self._logger:Info("NAVBAR", "InternalAdapter initialized (Native UI Mode)")
 end
 
 function InternalAdapter:_ensureGui()
     local player = Players.LocalPlayer
     if not player then return end
+    local pg = player:WaitForChild("PlayerGui")
     
-    local playerGui = player:WaitForChild("PlayerGui")
-    
-    -- Prevent duplicate
     if self._gui and self._gui.Parent then return end
     
-    local screen = Instance.new("ScreenGui")
-    screen.Name = "OVHL_InternalNavbar"
-    screen.ResetOnSpawn = false
-    screen.IgnoreGuiInset = true
-    screen.DisplayOrder = 100 -- Always on top
+    -- Destroy old GUI if exists to prevent ghosts
+    local old = pg:FindFirstChild("OVHL_Internal_Navbar")
+    if old then old:Destroy() end
     
-    -- Container (Top Bar Area)
-    local container = Instance.new("Frame", screen)
-    container.Name = "Container"
-    container.Size = UDim2.new(1, 0, 0, 40) -- Height 40px
-    container.Position = UDim2.new(0, 0, 0, 0)
-    container.BackgroundTransparency = 1
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "OVHL_Internal_Navbar"
+    sg.IgnoreGuiInset = true
+    sg.DisplayOrder = 999
+    sg.Parent = pg
     
-    -- Layout
-    local layout = Instance.new("UIListLayout", container)
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.VerticalAlignment = Enum.VerticalAlignment.Center
-    layout.Padding = UDim.new(0, 5)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    local fr = Instance.new("Frame", sg)
+    fr.Name = "Bar"
+    fr.Size = UDim2.new(1, 0, 0, 44)
+    fr.Position = UDim2.new(0, 0, 0, 0)
+    fr.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    fr.BackgroundTransparency = 0.2
     
-    -- Padding
-    local padding = Instance.new("UIPadding", container)
-    padding.PaddingTop = UDim.new(0, 4)
+    local list = Instance.new("UIListLayout", fr)
+    list.FillDirection = Enum.FillDirection.Horizontal
+    list.Padding = UDim.new(0, 4)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Left
     
-    screen.Parent = playerGui
-    self._gui = screen
-    self._container = container
+    local pad = Instance.new("UIPadding", fr)
+    pad.PaddingLeft = UDim.new(0, 100)
+    pad.PaddingTop = UDim.new(0, 4)
+    
+    self._gui = sg
+    self._container = fr
 end
 
-function InternalAdapter:AddButton(buttonId, config)
+function InternalAdapter:AddButton(id, config)
     self:_ensureGui()
     
-    if self._buttons[buttonId] then
-        self._logger:Warn("NAVBAR", "Button already exists", {id=buttonId})
-        return false
+    -- [CRITICAL FIX] CLEANUP OLD BUTTON IF EXISTS
+    if self._buttons[id] then
+        pcall(function() self._buttons[id]:Destroy() end)
+        self._buttons[id] = nil
     end
     
     local btn = Instance.new("TextButton")
-    btn.Name = buttonId
-    btn.Text = config.Text or buttonId
-    btn.Size = UDim2.new(0, 100, 0, 32)
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamMedium
-    btn.TextSize = 14
+    btn.Name = id
+    -- TAMPILKAN ID JIKA TEXT SAMA (DEBUGGING VISUAL)
+    btn.Text = config.Text or id
+    btn.Size = UDim2.new(0, 120, 1, -8)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    btn.TextColor3 = Color3.new(1,1,1)
     btn.Parent = self._container
     
-    -- Styling
-    local corner = Instance.new("UICorner", btn)
-    corner.CornerRadius = UDim.new(0, 6)
+    local uc = Instance.new("UICorner", btn); uc.CornerRadius = UDim.new(0,6)
     
-    local stroke = Instance.new("UIStroke", btn)
-    stroke.Color = Color3.fromRGB(60, 60, 60)
-    stroke.Thickness = 1
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    
-    -- Events
     btn.MouseButton1Click:Connect(function()
-        if config.OnClick then
-            pcall(config.OnClick)
+        print("🖱️ INTERNAL NAV CLICKED:", id) -- Debug Print
+        if config.OnClick then 
+            local s, e = pcall(config.OnClick) 
+            if not s then warn("OnClick Error:", e) end
+        else
+            warn("No OnClick handler for", id)
         end
     end)
     
-    self._buttons[buttonId] = {
-        config = config,
-        instance = btn
-    }
-    
-    self._logger:Debug("NAVBAR", "Internal Button Created", {id=buttonId})
+    self._buttons[id] = btn
     return true
 end
 
-function InternalAdapter:RemoveButton(buttonId)
-    local data = self._buttons[buttonId]
-    if data and data.instance then
-        data.instance:Destroy()
-        self._buttons[buttonId] = nil
-        return true
+function InternalAdapter:RemoveButton(id) 
+    if self._buttons[id] then 
+        self._buttons[id]:Destroy()
+        self._buttons[id] = nil
     end
-    return false
+    return true 
 end
 
-function InternalAdapter:SetButtonActive(buttonId, active)
-    local data = self._buttons[buttonId]
-    if data and data.instance then
-        data.instance.Visible = active
-        return true
-    end
-    return false
-end
+function InternalAdapter:SetButtonActive(id, active) return true end
 
 return InternalAdapter
-
---[[
-@End: InternalAdapter.lua
-@Version: 1.1.0 (Visual Implementation)
---]]
+--[[ @End: InternalAdapter.lua ]]

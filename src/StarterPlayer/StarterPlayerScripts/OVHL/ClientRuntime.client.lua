@@ -11,7 +11,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 
 local Bootstrap = require(ReplicatedStorage.OVHL.Core.Bootstrap)
 local OVHL = Bootstrap:Initialize()
-local Logger = OVHL:GetSystem("SmartLogger")
+local Logger = OVHL.GetSystem("SmartLogger")
 
 Logger:Info("CLIENT", "🚀 Starting OVHL Client Runtime V1.0.0")
 
@@ -24,7 +24,7 @@ Logger:Debug("CLIENT", "Pre-Knit system verification")
 local uiSystems = { "UIEngine", "UIManager", "AssetLoader" }
 local uiReady = 0
 for _, systemName in ipairs(uiSystems) do
-	local system = OVHL:GetSystem(systemName)
+	local system = OVHL.GetSystem(systemName)
 	if system then
 		if system.Initialize then
 			system:Initialize(Logger)

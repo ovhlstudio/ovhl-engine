@@ -8,7 +8,7 @@ OVHL ENGINE V1.0.0
 
 --[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE SERVER SERVICE (CLEAN)
-Version: 3.0.5
+Version: 1.0.1
 Path: ServerScriptService.OVHL.Modules.MinimalModule.MinimalService
 FIXES: Removed SystemRegistry call (Knit handles it)
 --]]
@@ -23,12 +23,12 @@ local MinimalService = Knit.CreateService {
 
 function MinimalService:KnitInit()
     self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-    self.Logger = self.OVHL:GetSystem("SmartLogger")
-    self.Config = self.OVHL:GetConfig("MinimalModule", nil, "Server")
+    self.Logger = self.OVHL.GetSystem("SmartLogger")
+    self.Config = self.OVHL.GetConfig("MinimalModule", nil, "Server")
     
-    self.InputValidator = self.OVHL:GetSystem("InputValidator")
-    self.RateLimiter = self.OVHL:GetSystem("RateLimiter") 
-    self.PermissionCore = self.OVHL:GetSystem("PermissionCore")
+    self.InputValidator = self.OVHL.GetSystem("InputValidator")
+    self.RateLimiter = self.OVHL.GetSystem("RateLimiter") 
+    self.PermissionCore = self.OVHL.GetSystem("PermissionCore")
     
     -- FIX: Removed SystemRegistry registration to prevent double logging
     
@@ -107,7 +107,7 @@ end
 
 function MinimalService.Client:GetData(player)
     if not self.Server.RateLimiter:Check(player, "GetData") then return {success=false} end
-    local clientConfig = self.Server.OVHL:GetClientConfig("MinimalModule")
+    local clientConfig = self.Server.OVHL.GetClientConfig("MinimalModule")
     return {success=true, data={version=clientConfig.Version}}
 end
 

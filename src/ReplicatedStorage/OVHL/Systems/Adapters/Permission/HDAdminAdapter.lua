@@ -1,14 +1,13 @@
 --[[
-OVHL ENGINE V1.0.0
+OVHL FRAMEWORK V.1.0.1
 @Component: HDAdminAdapter (Permission)
 @Path: ReplicatedStorage.OVHL.Systems.Adapters.Permission.HDAdminAdapter
-@Purpose: Bridge to HD Admin permission system (Context Aware)
-@Stability: BETA
+@Purpose: Bridge to HD Admin (Server) & Passive State Reader (Client)
+@Stability: STABLE
 --]]
 
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HDAdminAdapter = {}
 HDAdminAdapter.__index = HDAdminAdapter
@@ -25,37 +24,29 @@ end
 function HDAdminAdapter:Initialize(logger)
     self._logger = logger
     
-    -- STRATEGI KONEKSI BERDASARKAN KONTEKS
     if self._isServer then
         self:_connectServer()
     else
-        self:_connectClient()
-    end
-    
-    if self._available then
-        self._logger:Info("PERMISSION", "HDAdminAdapter connected", {context = self._isServer and "Server" or "Client"})
-    else
-        -- Silent fail on client is normal if HD Admin hides itself
-        local level = self._isServer and "Warn" or "Debug"
-        self._logger[level](self._logger, "PERMISSION", "HDAdmin not detected - fallback to Internal")
+        -- CLIENT: ALWAYS AVAILABLE (Passive Mode)
+        self._available = true 
+        self._logger:Info("PERMISSION", "HDAdminAdapter (Client) Ready in Passive Mode")
     end
 end
 
 function HDAdminAdapter:_connectServer()
-    -- 1. Cek Global Injection Standard
+    -- 1. Cek Global Injection
     if _G.HDAdminMain then
         self._hdAdminAPI = _G.HDAdminMain
         self._available = true
+        self._logger:Info("PERMISSION", "HDAdminAdapter connected via _G")
         return
     end
 
-    -- 2. Cek Folder Fisik di ServerScriptService (Standard Boot)
-    -- Gambar user menunjukkan: ServerScriptService -> HD Admin -> Settings (Module)
+    -- 2. Cek Folder ServerScriptService
     local hdFolder = ServerScriptService:FindFirstChild("HD Admin")
     if hdFolder then
-        local mainModule = hdFolder:FindFirstChild("MainModule") -- Biasanya di dalam folder Core atau root
+        local mainModule = hdFolder:FindFirstChild("MainModule") 
         if not mainModule then
-             -- Coba cari di subfolder Core (sesuai gambar user)
              local core = hdFolder:FindFirstChild("Core")
              if core then mainModule = core:FindFirstChild("MainModule") end
         end
@@ -65,28 +56,28 @@ function HDAdminAdapter:_connectServer()
             if success and api then
                 self._hdAdminAPI = api
                 self._available = true
+                self._logger:Info("PERMISSION", "HDAdminAdapter connected via Module")
                 return
             end
         end
     end
-end
-
-function HDAdminAdapter:_connectClient()
-    -- Client biasanya akses via _G.HDAdminClient atau module di ReplicatedStorage
-    -- Untuk V1.0.0, kita biarkan client fallback ke Internal dulu agar UI aman
-    -- Kecuali kita tau persis API client HD Admin (sering berubah)
-    self._available = false 
+    self._logger:Warn("PERMISSION", "HDAdmin plugin not found on Server!")
 end
 
 function HDAdminAdapter:IsAvailable()
-    return self._available and self._hdAdminAPI ~= nil
+    return self._available
 end
 
 function HDAdminAdapter:GetRank(player)
-    if not self:IsAvailable() then return 0 end
+    -- CLIENT: BACA ATRIBUT (Passive State)
+    if not self._isServer then
+        return player:GetAttribute("OVHL_Rank") or 0
+    end
+
+    -- SERVER: AKSES API ASLI
+    if not self._hdAdminAPI then return 0 end
     
     local success, result = pcall(function()
-        -- API Standard HD Admin: GetUserRank(userId) atau GetRank(player)
         if self._hdAdminAPI.GetRank then
             return self._hdAdminAPI:GetRank(player)
         elseif self._hdAdminAPI.GetPlayerRank then
@@ -101,47 +92,17 @@ function HDAdminAdapter:GetRank(player)
 end
 
 function HDAdminAdapter:CheckPermission(player, permissionNode)
-    if not self:IsAvailable() then return false, "HD Admin unavailable" end
-    
-    local rank = self:GetRank(player)
-    local requiredRank = self:_resolveRequiredRank(permissionNode)
-    
-    if rank >= requiredRank then
-        return true
-    end
-    return false, string.format("Insufficient rank (%d < %d)", rank, requiredRank)
+    -- Tidak ada logic permission node di adapter, serahkan rank saja
+    -- Logic mapping node -> rank ada di PermissionCore
+    return true -- Stub, logic utama di PermissionCore
 end
 
-function HDAdminAdapter:_resolveRequiredRank(permissionNode)
-    -- Helper: Baca config modul untuk mapping string -> number
-    local module, action = string.match(permissionNode, "^(%w+)%.(.+)$")
-    if not module then return 0 end
-
-    local OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-    local config = OVHL:GetConfig(module, nil, self._isServer and "Server" or "Client")
-    
-    if not config or not config.Permissions or not config.Permissions[action] then
-        return 0 -- Default allow if no rule
-    end
-    
-    local req = config.Permissions[action].Rank
-    
-    -- HD Admin Rank Map Standard
-    local rankMap = { 
-        Owner = 5, HeadAdmin = 4, SuperAdmin = 4, 
-        Admin = 3, Mod = 2, VIP = 1, NonAdmin = 0 
-    }
-    
-    if type(req) == "string" then return rankMap[req] or 0 end
-    return tonumber(req) or 0
-end
-
--- Stub methods
 function HDAdminAdapter:SetRank(player, rank) return false end
 
 return HDAdminAdapter
 
 --[[
 @End: HDAdminAdapter.lua
-@Version: 1.0.2 (Context Aware)
+@Version: 1.0.1
+@See: docs/302_ADR_LOG.md (ADR-007 Passive State)
 --]]

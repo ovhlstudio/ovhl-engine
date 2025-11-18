@@ -50,7 +50,7 @@ return nil
 
 --[[
 @End: ScannerContract.lua
-@Version: 3.2.2
+@Version: 1.0.1
 @See: docs/ADR_V3-2-2.md (Nanti kita buat)
 --]]
 
