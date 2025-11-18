@@ -1,9 +1,8 @@
 --[[
-OVHL FRAMEWORK V.1.0.1
+OVHL FRAMEWORK V.1.1.0
 @Component: UIManager (UI)
-@Path: ReplicatedStorage.OVHL.Systems.UI.UIManager
-@Purpose: Screen lifecycle & Adapter-based Navbar management (Fixed Config)
-@Stability: STABLE
+@Path: StarterPlayer.StarterPlayerScripts.OVHL.Systems.UI.UIManager
+@Purpose: Screen lifecycle & Adapter-based Navbar management
 --]]
 
 local UIManager = {}
@@ -22,13 +21,16 @@ end
 
 function UIManager:Initialize(logger)
     self._logger = logger
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
     local success, cfg = pcall(function() return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig) end)
     self._adapterName = (success and cfg.Adapters and cfg.Adapters.Navbar) or "InternalAdapter"
     self._logger:Info("UIMANAGER", "Init", {navbar = self._adapterName})
 end
 
 function UIManager:Start()
-    local folder = script.Parent.Parent.Adapters.Navbar
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH TO SHARED ADAPTERS
+    local folder = game:GetService("ReplicatedStorage").OVHL.Systems.Adapters.Navbar
+    
     local mod = folder:FindFirstChild(self._adapterName)
     if mod then
         local cls = require(mod)
@@ -79,9 +81,8 @@ function UIManager:ToggleScreen(screenName)
     if s.Enabled then return self:HideScreen(screenName) else return self:ShowScreen(screenName) end
 end
 
--- [PHASE 3 FIX] Smart Setup Topbar (Auto-fetch Config)
 function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
-    -- FIX: Jangan percaya parameter config mentah. Ambil Full Config via OVHL.
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
     local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
     local fullConfig = OVHL.GetClientConfig(moduleName)
     
@@ -90,15 +91,12 @@ function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
         return false
     end
     
-    -- Resolusi config Topbar (Bisa di root, atau di dalam UI)
     local topbarConfig = fullConfig.Topbar or (fullConfig.UI and fullConfig.UI.Topbar)
     
     if not topbarConfig or not topbarConfig.Enabled then 
-        -- Silent return, mungkin memang tidak ada topbar
         return nil 
     end
 
-    -- PRIORITY: Explicit OnClick > Config OnClick
     if explicitOnClick then
         topbarConfig.OnClick = explicitOnClick
     elseif not topbarConfig.OnClick then
@@ -106,13 +104,11 @@ function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
          return false
     end
     
-    -- TRY MAIN ADAPTER
     local success = false
     if self._adapter then
         success = self._adapter:AddButton(moduleName, topbarConfig)
     end
     
-    -- FALLBACK
     if not success then
         if self._fallbackAdapter then
             self._logger:Warn("UIMANAGER", "Main Adapter failed, using Fallback", {module=moduleName})

@@ -1,7 +1,7 @@
 --[[
-OVHL FRAMEWORK V.1.0.1
-@Component: @Component: PlayerManager (Core System) (Standard)
-@Path: ReplicatedStorage.OVHL.Systems/Advanced/PlayerManager
+OVHL FRAMEWORK V.1.1.0
+@Component: PlayerManager (Core System)
+@Path: ServerScriptService.OVHL.Systems.Advanced.PlayerManager
 @Purpose: Player Lifecycle with Safe Data Handling
 --]]
 
@@ -22,7 +22,8 @@ function PlayerManager:Initialize(logger)
 end
 
 function PlayerManager:Start()
-	local OVHL = require(script.Parent.Parent.Parent.Core.OVHL)
+    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
+	local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
 	self._dataManager = OVHL.GetSystem("DataManager")
 
 	if not self._dataManager then
@@ -61,13 +62,11 @@ function PlayerManager:_onPlayerAdded(player)
 
 	if not self._dataManager then return end
 
-    -- [PHASE 2 FIX] Load Data dengan handling error
 	local data = self._dataManager:LoadData(player)
 
 	if data then
 		self._logger:Info("PLAYERMANAGER", "Data siap.", { player = player.Name })
 	else
-        -- [CRITICAL] Jika data gagal load total (setelah retry), Kick player untuk mencegah data loss/overwrite
 		self._logger:Critical("PLAYERMANAGER", "DATA LOAD GAGAL TOTAL! Kicking player untuk keamanan.", { player = player.Name })
         player:Kick("⚠️ OVHL Security: Gagal memuat data profil Anda. Silakan rejoin.")
 	end
