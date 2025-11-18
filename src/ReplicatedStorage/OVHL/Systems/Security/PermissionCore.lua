@@ -10,131 +10,115 @@ local PermissionCore = {}
 PermissionCore.__index = PermissionCore
 
 function PermissionCore.new()
-	local self = setmetatable({}, PermissionCore)
-	self._logger = nil
-	self._adapter = nil -- Will be loaded in Initialize
-	self._adapterName = nil
-	return self
+    local self = setmetatable({}, PermissionCore)
+    self._logger = nil
+    self._adapter = nil
+    self._adapterName = nil
+    return self
 end
 
 function PermissionCore:Initialize(logger)
-	self._logger = logger
-
-	-- Load config to determine which adapter to use
-	local ConfigLoader = require(script.Parent.Parent.Parent.Config.ConfigLoader)
-	local engineConfig = ConfigLoader:LoadEngineConfig()
-
-	if not engineConfig or not engineConfig.Adapters then
-		self._logger:Warn("PERMISSION", "No adapter config found, using Internal")
-		self._adapterName = "InternalAdapter"
-	else
-		self._adapterName = engineConfig.Adapters.Permission or "InternalAdapter"
-	end
-
-	self._logger:Info("PERMISSION", "PermissionCore initialized (will load adapter on Start)", {
-		adapter = self._adapterName,
-	})
+    self._logger = logger
+    
+    -- FIX: Direct require to EngineConfig
+    local success, engineConfig = pcall(function()
+        return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig)
+    end)
+    
+    if success and engineConfig and engineConfig.Adapters then
+        self._adapterName = engineConfig.Adapters.Permission or "InternalAdapter"
+    else
+        self._logger:Warn("PERMISSION", "Failed to load EngineConfig, using Internal")
+        self._adapterName = "InternalAdapter"
+    end
+    
+    self._logger:Info("PERMISSION", "PermissionCore initialized", {adapter = self._adapterName})
 end
 
 function PermissionCore:Start()
-	-- Load the selected adapter
-	local adapterPath = script.Parent.Parent.Adapters.Permission:FindFirstChild(self._adapterName)
+    local adapterFolder = script.Parent.Parent.Adapters.Permission
+    self:_loadAdapter(adapterFolder, self._adapterName)
+end
 
-	if not adapterPath then
-		self._logger:Warn("PERMISSION", "Adapter not found, falling back to Internal", {
-			requested = self._adapterName,
-		})
-		adapterPath = script.Parent.Parent.Adapters.Permission:FindFirstChild("InternalAdapter")
-	end
+function PermissionCore:_loadAdapter(folder, name)
+    local adapterModule = folder:FindFirstChild(name)
+    
+    -- Try finding requested adapter
+    if not adapterModule then
+        self._logger:Warn("PERMISSION", "Adapter not found, fallback to Internal", {requested = name})
+        return self:_loadInternal(folder)
+    end
+    
+    -- Try loading it
+    local success, AdapterClass = pcall(require, adapterModule)
+    if not success then
+        self._logger:Error("PERMISSION", "Failed to require adapter", {error = tostring(AdapterClass)})
+        return self:_loadInternal(folder)
+    end
+    
+    -- Instantiate & Initialize
+    local adapterInstance = AdapterClass.new()
+    if adapterInstance.Initialize then
+        adapterInstance:Initialize(self._logger)
+    end
+    
+    -- SMART FALLBACK CHECK
+    if adapterInstance.IsAvailable and not adapterInstance:IsAvailable() then
+        self._logger:Warn("PERMISSION", "Adapter unavailable, triggering fallback", {adapter = name})
+        return self:_loadInternal(folder)
+    end
+    
+    self._adapter = adapterInstance
+    self._logger:Info("PERMISSION", "Adapter active", {adapter = name})
+end
 
-	if not adapterPath then
-		self._logger:Critical("PERMISSION", "CRITICAL: No adapters found!")
-		return false
-	end
+function PermissionCore:_loadInternal(folder)
+    -- Prevent infinite loop if Internal itself is failing (though unlikely)
+    if self._adapterName == "InternalAdapter" and not self._adapter then
+       -- Internal loaded directly below
+    end
 
-	-- Load adapter
-	local success, AdapterClass = pcall(require, adapterPath)
-
-	if not success then
-		self._logger:Error("PERMISSION", "Failed to load adapter", {
-			adapter = self._adapterName,
-			error = tostring(AdapterClass),
-		})
-
-		-- Try Internal fallback
-		local internalPath = script.Parent.Parent.Adapters.Permission:FindFirstChild("InternalAdapter")
-		if internalPath then
-			success, AdapterClass = pcall(require, internalPath)
-		end
-	end
-
-	if success and AdapterClass then
-		self._adapter = AdapterClass.new()
-		self._adapter:Initialize(self._logger)
-
-		self._logger:Info("PERMISSION", "Permission adapter loaded", {
-			adapter = self._adapterName,
-		})
-		return true
-	else
-		self._logger:Critical("PERMISSION", "FAILED: Could not load any adapter")
-		return false
-	end
+    local internalModule = folder:FindFirstChild("InternalAdapter")
+    if internalModule then
+        local success, InternalClass = pcall(require, internalModule)
+        if success then
+            self._adapter = InternalClass.new()
+            if self._adapter.Initialize then self._adapter:Initialize(self._logger) end
+            self._logger:Info("PERMISSION", "Fallback to InternalAdapter active")
+            return
+        end
+    end
+    self._logger:Critical("PERMISSION", "CRITICAL: Failed to load InternalAdapter fallback!")
 end
 
 function PermissionCore:Check(player, permissionNode)
-	if not self._adapter then
-		self._logger:Error("PERMISSION", "Adapter not initialized")
-		return false, "Adapter not ready"
-	end
-
-	local allowed, reason = self._adapter:CheckPermission(player, permissionNode)
-
-	if allowed then
-		self._logger:Debug("PERMISSION", "Access Granted", {
-			player = player.Name,
-			node = permissionNode,
-		})
-	else
-		self._logger:Warn("PERMISSION", "Access Denied", {
-			player = player.Name,
-			node = permissionNode,
-			reason = reason,
-		})
-	end
-
-	return allowed, reason
+    if not self._adapter then return false, "System not ready" end
+    
+    -- Added Logging for Debugging
+    local allowed, reason = self._adapter:CheckPermission(player, permissionNode)
+    if not allowed then
+        self._logger:Warn("PERMISSION", "Access Denied", {
+            player = player.Name,
+            node = permissionNode,
+            reason = reason
+        })
+    end
+    return allowed, reason
 end
 
 function PermissionCore:GetRank(player)
-	if not self._adapter then
-		return 0
-	end
-
-	if self._adapter.GetRank then
-		return self._adapter:GetRank(player)
-	end
-
-	return 0
+    if not self._adapter then return 0 end
+    return self._adapter:GetRank(player)
 end
 
 function PermissionCore:SetRank(player, rank)
-	if not self._adapter then
-		return false
-	end
-
-	if self._adapter.SetRank then
-		return self._adapter:SetRank(player, rank)
-	end
-
-	return false
+    if not self._adapter then return false end
+    return self._adapter:SetRank(player, rank)
 end
 
 return PermissionCore
 
 --[[
 @End: PermissionCore.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
+@Version: 1.0.2 (Smart Fallback)
 --]]

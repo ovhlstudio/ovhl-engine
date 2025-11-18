@@ -1,3 +1,84 @@
+
+# 🛑 [2025-11-18] Sesi Kerja - CRITICAL REVIEW: UI Manager Failure
+
+**TANGGAL SESI:** 2025-11-18, 16:47
+**STATUS:** ⚠️ PARTIAL SUCCESS / CRITICAL UI FAILURE
+**KONTEKS:** Penghentian Hotfix. Evaluasi ulang arsitektur Client-Side.
+
+---
+
+## ✅ YANG BERHASIL (BACKEND / LOGIC)
+1.  **Server Security Pipeline:** Berjalan 100%. Validasi Input, Rate Limit, dan Permission Check (via HD Admin Server) sukses menahan/mengizinkan request.
+2.  **Server Boot:** Clean boot, tidak ada error runtime merah.
+3.  **Prototype Logic:** Transaksi pembelian item berhasil diproses dan dicatat database.
+4.  **Server-Side Adapter:** `HDAdminAdapter` di Server sukses terkoneksi ke plugin HD Admin asli.
+
+## ❌ YANG GAGAL (FRONTEND / UI)
+1.  **Topbar UI Ghaib:** Meskipun log mengatakan `TopbarPlusAdapter` loaded, visual tombol tidak pernah muncul.
+2.  **Diagnosa Salah:** Upaya hotfix pada Config Path dan Visual Internal Adapter tidak menyelesaikan masalah karena engine tetap memuat TopbarPlus Adapter yang (kemungkinan) rusak/asetnya invalid, alih-alih fallback.
+3.  **Client Adapter Noise:** Client dibanjiri log "Fallback to Internal" karena desain Adapter yang memaksa Client mengecek keberadaan HD Admin secara aktif.
+
+---
+
+## 🧠 PELAJARAN KRITIS (ARSITEKTUR)
+**Kesalahan Konsep:** Client tidak seharusnya memiliki logika aktif untuk mengecek sistem Admin eksternal (HD Admin).
+
+**Kebenaran Baru (Sesuai Diskusi):**
+1.  **Client harus PASIF:** Client tidak perlu tahu "HD Admin ada atau tidak".
+2.  **State Replication:** Server yang harus memberi tahu Client: "Hei, Rank kamu adalah 'Owner'".
+3.  **UI Logic:** Client hanya merender UI berdasarkan data Rank tersebut. Jangan melakukan validasi permission di Client Adapter. Validasi itu tugas Server.
+
+---
+
+# 🛠️ [2025-11-18] Sesi Kerja - Phase 3 Testing & Resilience Fixes
+
+**TANGGAL SESI:** 2025-11-18, 15:57
+**TUJUAN:** Implementasi Test Infrastructure, Prototype Module, dan perbaikan stabilitas Adapter.
+**STATUS:** ✅ SELESAI (PLAYTEST SUKSES)
+
+---
+
+## 📋 FILE YANG DIUBAH / DIBUAT
+
+### **Created:**
+
+- `tests/Unit/InputValidator.spec.lua`
+- `tests/Unit/RateLimiter.spec.lua`
+- `src/ReplicatedStorage/OVHL/Shared/Modules/PrototypeShop/...` (Module lengkap)
+- `src/ServerScriptService/OVHL/Modules/PrototypeShop/...`
+- `src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/PrototypeShop/...`
+
+### **Modified (Fixes):**
+
+- `src/ServerScriptService/OVHL/Modules/PrototypeShop/PrototypeShopService.lua`
+  - **Fix:** Menambahkan `_registerSecurity()` untuk mendaftarkan Schema/RateLimit modul ke sistem inti saat init.
+- `src/ReplicatedStorage/OVHL/Systems/Security/PermissionCore.lua`
+  - **Fix:** Menambahkan logika `Smart Fallback`. Jika Adapter (misal HDAdmin) ada tapi `IsAvailable() == false`, otomatis switch ke `InternalAdapter`.
+
+---
+
+## 🎯 MASALAH & SOLUSI
+
+### **Masalah 1: Unknown Schema Error**
+
+- **Gejala:** `PrototypeShop: Invalid Input {error=Unknown schema: BuyItem}`
+- **Akar Masalah:** `InputValidator` tidak otomatis scan config modul. Service lupa mendaftarkan schema miliknya.
+- **Solusi:** Update `PrototypeShopService:KnitInit()` untuk meloop config dan memanggil `InputValidator:AddSchema()`.
+
+### **Masalah 2: Permission Denied (Adapter Failure)**
+
+- **Gejala:** `PrototypeShop: Permission Denied`. Log menunjukkan HD Admin adapter dimuat, tapi status unavailable (karena plugin tidak ada di Studio).
+- **Akar Masalah:** `PermissionCore` hanya memuat adapter sesuai config ("HDAdminAdapter"). Ketika adapter itu gagal inisialisasi/unavailable, sistem diam saja (return false untuk semua cek).
+- **Solusi (ADR-006):** Implementasi mekanisme **Smart Fallback**. `PermissionCore` sekarang mengecek `adapter:IsAvailable()`. Jika false, ia membuang adapter tersebut dan memuat `InternalAdapter` sebagai gantinya.
+
+---
+
+## ✅ HASIL PLAYTEST
+
+- **Test Transaction:** `SUCCESS`
+- **Security Pipeline:** Input Valid -> Rate Limit OK -> Permission OK (via Internal Fallback) -> Business Logic Executed.
+- **Resilience:** Engine terbukti tahan banting terhadap hilangnya dependensi eksternal (HD Admin).
+
 > START OF ./docs/300_LOGS/301_DEV_LOG.md
 >
 > **OVHL ENGINE V3.4.0** > **STATUS:** MONOLITHIC LOGGING

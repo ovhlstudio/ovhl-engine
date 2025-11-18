@@ -1,3 +1,67 @@
+
+# 📢 [2025-11-18] Keputusan ADR-007 - Client-Side Passive State (State vs Check)
+
+**TANGGAL KEPUTUSAN:** 2025-11-18, 16:47
+**STATUS:** ⚠️ USULAN (MENGGANTIKAN LOGIKA CLIENT ADAPTER SAAT INI)
+
+**KONTEKS:**
+Implementasi Adapter saat ini memaksa Client untuk melakukan pengecekan sistem eksternal (misal: `_G.HDAdmin`). Ini gagal karena Client tidak punya akses ke servis Server, dan menyebabkan log error/warning yang membingungkan serta kompleksitas fallback yang tidak perlu.
+
+**KEPUTUSAN BARU (PIVOT):**
+1.  **Hapus Logic Cek di Client:** Adapter Permission di Client TIDAK BOLEH mencoba mencari API HD Admin.
+2.  **Gunakan Replikasi State:**
+    * Saat Player Join, Server (PermissionCore) mengecek Rank via HD Admin.
+    * Server mengirimkan data Rank (String/Int) ke Client via Atribut/Remote.
+    * Client PermissionCore hanya membaca data lokal tersebut.
+3.  **Trust Model:** Client "percaya" data Rank lokal hanya untuk keperluan **Visual UI** (menampilkan tombol). Keamanan tetap dijamin oleh validasi ulang di Server saat request masuk (Hukum #3).
+
+**DAMPAK:**
+- Menyederhanakan `HDAdminAdapter` (sisi Client jadi kosong/dummy).
+- Menghapus kebutuhan "Smart Fallback" di sisi Client.
+- Memperbaiki masalah UI yang tidak muncul karena logic adapter yang ribet.
+
+---
+
+# 📢 [2025-11-18] Keputusan ADR-006 - Smart Adapter Fallback Strategy
+
+**TANGGAL KEPUTUSAN:** 2025-11-18, 15:57
+**KONTEKS:** Kegagalan sistem eksternal (seperti HD Admin atau TopbarPlus) tidak boleh melumpuhkan fungsionalitas inti Engine (seperti pengecekan izin dasar).
+**STATUS:** ✅ DITETAPKAN
+
+---
+
+## 🎯 KEPUTUSAN (ADR-006)
+
+**Implementasi Mekanisme "Smart Fallback" pada Sistem berbasis Adapter.**
+
+Setiap Core System yang menggunakan Adapter (PermissionCore, UIManager) **WAJIB** melakukan verifikasi ketersediaan (`IsAvailable`) setelah memuat Adapter pilihan.
+
+Jika Adapter pilihan **GAGAL** atau **TIDAK TERSEDIA**:
+1. Sistem harus mencatat peringatan (Warn).
+2. Sistem harus **OTOMATIS** memuat `InternalAdapter` (fallback bawaan).
+3. Sistem melanjutkan operasi dalam mode degradasi (degraded mode) namun tetap fungsional.
+
+---
+
+## 🔍 ALASAN / KONTEKS
+
+Saat testing Phase 3, `HDAdminAdapter` dipilih via config. Namun, karena plugin HD Admin tidak terinstal di environment Studio:
+1. Adapter ter-load (file ada).
+2. Tapi API internalnya nil.
+3. `CheckPermission` selalu return false.
+4. Akibatnya: **Semua fitur game yang butuh izin macet.**
+
+Dengan ADR-006, Engine menjadi **Anti-Fragile**. Hilangnya satu plugin tidak lagi mematikan game, hanya mengubah provider izin ke internal sistem.
+
+---
+
+## 📐 DAMPAK (IMPACT)
+
+- **File Modified:** `PermissionCore.lua` (Logic loading diubah).
+- **Requirement Baru:** Semua Adapter masa depan harus mengimplementasikan method `IsAvailable() -> boolean`.
+- **Behavior:** Engine lebih resilien. Developer tidak perlu panik jika lupa install plugin dependensi di environment baru.
+
+---
 > START OF ./docs/300_LOGS/302_ADR_LOG.md
 >
 > **OVHL ENGINE V3.4.0** > **STATUS:** MONOLITHIC LOGGING
