@@ -1,207 +1,296 @@
 #!/bin/bash
+set -e
 
-###############################################################################
-# OVHL BACKUP ORGANIZER
-# Purpose: Move all .bak files to ./lokal/backups/ with timestamp folder
-# Version: 1.0.0
-# Author: OVHL DevTools
-# Usage: ./organize_backups.sh
-###############################################################################
+echo "☢️ STARTING NUCLEAR SWEEP: OVERWRITING FILES TO V.1.0.1"
+echo "========================================================"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# ------------------------------------------------------------------------------
+# 1. OVERWRITE SERVER RUNTIME (FULL REWRITE)
+# ------------------------------------------------------------------------------
+SR_FILE="src/ServerScriptService/OVHL/ServerRuntime.server.lua"
+echo "📝 Overwriting: $SR_FILE"
 
-# Configuration
-BACKUPS_DIR="./lokal/backups"
-SOURCE_DIR="./src"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FOLDER="${BACKUPS_DIR}/v1_0_0_standardization_${TIMESTAMP}"
-VERBOSE=true
+cat << 'EOF' > "$SR_FILE"
+--[[
+OVHL FRAMEWORK V.1.0.1
+@Component: ServerRuntime.server (Entry Point)
+@Path: ServerScriptService.OVHL.ServerRuntime.server
+@Purpose: Server-side bootstrap entry point
+@Version: 1.0.1
+--]]
 
-# Stats
-TOTAL_BACKUPS=0
-MOVED_BACKUPS=0
-ERRORS=0
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Bootstrap = require(ReplicatedStorage.OVHL.Core.Bootstrap)
 
-###############################################################################
-# UTILITY FUNCTIONS
-###############################################################################
+local OVHL = Bootstrap:Initialize()
+local Logger = OVHL.GetSystem("SmartLogger")
 
-log_info() {
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}[INFO]${NC} $1"
-    fi
-}
+-- [FIX VERSION]
+Logger:Info("SERVER", "🚀 Starting OVHL Server Runtime V.1.0.1 (Standard)")
 
-log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
-}
+local Kernel = require(ReplicatedStorage.OVHL.Core.Kernel).new()
+Kernel:Initialize(Logger)
+local modulesFound = Kernel:ScanModules()
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+local SystemRegistry = OVHL.GetSystem("SystemRegistry")
+if SystemRegistry then
+    Logger:Info("SYSTEMREGISTRY", "SystemRegistry initialized (V.1.0.1)")
+end
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    ERRORS=$((ERRORS + 1))
-}
+Knit.Start()
+    :andThen(function()
+        Logger:Info("SERVER", "Knit started")
+        local registeredCount = Kernel:RegisterKnitServices(Knit)
+        Kernel:RunVerification()
 
-print_header() {
-    echo ""
-    echo -e "${BLUE}======================================${NC}"
-    echo -e "${BLUE}  OVHL BACKUP ORGANIZER${NC}"
-    echo -e "${BLUE}======================================${NC}"
-    echo ""
-}
+        local securitySystems = { "InputValidator", "RateLimiter", "PermissionCore", "SecurityHelper" }
+        local securityReady = 0
+        for _, name in ipairs(securitySystems) do
+            if OVHL.GetSystem(name) then
+                securityReady = securityReady + 1
+            end
+        end
 
-print_stats() {
-    echo ""
-    echo -e "${BLUE}======================================${NC}"
-    echo "Backups found: $TOTAL_BACKUPS"
-    echo -e "Moved: ${GREEN}$MOVED_BACKUPS${NC}"
-    echo -e "Errors: ${RED}$ERRORS${NC}"
-    echo -e "Destination: $BACKUP_FOLDER"
-    echo -e "${BLUE}======================================${NC}"
-    echo ""
-}
+        Logger:Info("SERVER", "🎉 OVHL Server Ready", {
+            modules = modulesFound,
+            kernel = registeredCount,
+            security = securityReady .. "/" .. #securitySystems,
+        })
+    end)
+    :catch(function(err)
+        Logger:Critical("SERVER", "Runtime Failed", { error = tostring(err) })
+    end)
 
-###############################################################################
-# MAIN FUNCTIONS
-###############################################################################
-
-main() {
-    print_header
-    
-    # Check if source directory exists
-    if [ ! -d "$SOURCE_DIR" ]; then
-        log_error "Source directory not found: $SOURCE_DIR"
-        exit 1
-    fi
-    
-    # Find all .bak files
-    log_info "Searching for .bak files in: $SOURCE_DIR"
-    local bak_count=$(find "$SOURCE_DIR" -name "*.bak" 2>/dev/null | wc -l)
-    
-    if [ "$bak_count" -eq 0 ]; then
-        log_warn "No .bak files found"
-        exit 0
-    fi
-    
-    TOTAL_BACKUPS=$bak_count
-    log_success "Found $TOTAL_BACKUPS .bak files"
-    echo ""
-    
-    # Create backup destination folder
-    log_info "Creating backup folder structure..."
-    
-    if mkdir -p "$BACKUP_FOLDER"; then
-        log_success "Backup folder created: $BACKUP_FOLDER"
+game:BindToClose(function()
+    if SystemRegistry then
+        Logger:Critical("SERVER", "Game closing. Initiating OVHL Shutdown...")
+        SystemRegistry:Shutdown()
     else
-        log_error "Failed to create folder: $BACKUP_FOLDER"
-        exit 1
-    fi
-    
-    # Create timestamp file (reference)
-    cat > "${BACKUP_FOLDER}/README.txt" << EOF
-OVHL V1.0.0 Standardization Backups
-Created: $(date)
-Timestamp: $TIMESTAMP
-
-These are backup files from the V1.0.0 standardization process.
-Original files are located in ./src/
-
-To restore:
-  1. Locate the original file in ./src/
-  2. Copy corresponding .bak file from here
-  3. Rename .bak to .lua (remove .bak extension)
-  4. Replace the updated file
-
-Backup folder: $(pwd)/$BACKUP_FOLDER
+        Logger:Critical("SERVER", "Game closing. SystemRegistry not found!")
+    end
+    task.wait(1)
+end)
 EOF
-    
-    log_success "Created README.txt"
-    echo ""
-    
-    # Move all .bak files
-    log_info "Moving .bak files..."
-    
-    find "$SOURCE_DIR" -name "*.bak" -print0 2>/dev/null | while IFS= read -r -d '' file; do
-        if [ -f "$file" ]; then
-            local filename=$(basename "$file")
-            local relative_path=$(echo "$file" | sed "s|${SOURCE_DIR}/||" | sed 's|.bak$||')
-            local dest_subdir="$BACKUP_FOLDER/$(dirname "$relative_path")"
-            
-            # Create subdirectory structure
-            mkdir -p "$dest_subdir"
-            
-            # Move file
-            if mv "$file" "${dest_subdir}/${filename}"; then
-                log_success "Moved: $relative_path.bak"
-                MOVED_BACKUPS=$((MOVED_BACKUPS + 1))
+
+# ------------------------------------------------------------------------------
+# 2. OVERWRITE SYSTEM REGISTRY (FULL REWRITE - KEEPING PHASE 5 FIX)
+# ------------------------------------------------------------------------------
+REG_FILE="src/ReplicatedStorage/OVHL/Core/SystemRegistry.lua"
+echo "📝 Overwriting: $REG_FILE"
+
+cat << 'EOF' > "$REG_FILE"
+--[[
+OVHL FRAMEWORK V.1.0.1
+@Component: SystemRegistry (Core Orchestrator)
+@Path: ReplicatedStorage.OVHL.Core.SystemRegistry
+@Purpose: Full Lifecycle Orchestrator
+@Version: 1.0.1
+--]]
+
+local SystemRegistry = {}
+SystemRegistry.__index = SystemRegistry
+
+function SystemRegistry.new(ovhl, logger)
+    local self = setmetatable({}, SystemRegistry)
+    self._systems = {} 
+    self._manifests = {} 
+    self._loadOrder = {} 
+    self._status = {} 
+    self._ovhl = ovhl
+    self._logger = logger
+    -- [FIX VERSION]
+    self._logger:Info("SYSTEMREGISTRY", "System Registry V.1.0.1 (4-Phase Lifecycle) initialized")
+    return self
+end
+
+function SystemRegistry:RegisterAndStartFromManifests(manifestsMap)
+    self._manifests = manifestsMap
+
+    local success, result = pcall(function() return self:_ResolveLoadOrder() end)
+    if not success then
+        self._logger:Critical("SYSTEMREGISTRY", "FATAL BOOT ERROR: Circular Dependency!", { error = result })
+        return 0, table.getn(self._manifests)
+    end
+    self._loadOrder = result
+
+    local initCount, initFailed = self:_RunInitializationPhase()
+    if initFailed > 0 then
+        self._logger:Critical("SYSTEMREGISTRY", "FATAL BOOT ERROR: Init Failed!", { failed = initFailed })
+        return initCount, initFailed
+    end
+
+    self:_RegisterWithOVHL()
+    local startCount, startFailed = self:_RunStartPhase()
+    return startCount, startFailed
+end
+
+function SystemRegistry:Shutdown()
+    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 4 (Destroy/Shutdown)...")
+    local success, result = pcall(function() return self:_RunDestroyPhase() end)
+    if not success then
+        self._logger:Critical("SYSTEMREGISTRY", "FATAL SHUTDOWN ERROR!", { error = result })
+    else
+        self._logger:Info("SYSTEMREGISTRY", "Shutdown complete.", { systems = result })
+    end
+end
+
+function SystemRegistry:_ResolveLoadOrder()
+    local visited = {}
+    local tempMarked = {}
+    local order = {}
+    local function visit(systemName)
+        if tempMarked[systemName] then error("Circular Dependency: " .. systemName, 2) end
+        if not visited[systemName] then
+            local manifest = self._manifests[systemName]
+            if not manifest then error("Missing Dependency: " .. systemName, 2) end
+            tempMarked[systemName] = true
+            for _, depName in ipairs(manifest.dependencies or {}) do visit(depName) end
+            tempMarked[systemName] = nil
+            visited[systemName] = true
+            table.insert(order, systemName)
+        end
+    end
+    for systemName, _ in pairs(self._manifests) do visit(systemName) end
+    return order
+end
+
+function SystemRegistry:_RunInitializationPhase()
+    local startedCount = 0
+    local failedCount = 0
+    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 1 (Initialize)...")
+
+    for _, systemName in ipairs(self._loadOrder) do
+        local manifest = self._manifests[systemName]
+        local success, moduleClass = pcall(require, manifest.modulePath)
+        if not success then
+            self._status[systemName] = "ERROR_LOAD"
+            self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = "Require fail" })
+            failedCount = failedCount + 1
+            continue
+        end
+
+        local success, systemInstance = pcall(moduleClass.new)
+        if not success then
+            self._status[systemName] = "ERROR_NEW"
+            self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = "New fail" })
+            failedCount = failedCount + 1
+            continue
+        end
+
+        if systemInstance.Initialize and type(systemInstance.Initialize) == "function" then
+            local success, errorMsg = pcall(function() systemInstance:Initialize(self._logger) end)
+            if not success then
+                self._status[systemName] = "ERROR_INIT"
+                self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = errorMsg })
+                failedCount = failedCount + 1
+                continue
+            end
+        end
+
+        self._status[systemName] = "INIT"
+        self._systems[systemName] = systemInstance
+        startedCount = startedCount + 1
+    end
+    return startedCount, failedCount
+end
+
+function SystemRegistry:_RegisterWithOVHL()
+    for systemName, systemInstance in pairs(self._systems) do
+        if self._status[systemName] == "INIT" then
+            -- [CRITICAL KEEP] Phase 5 Fix: Dot Notation
+            self._ovhl.RegisterSystem(systemName, systemInstance) 
+        end
+    end
+end
+
+function SystemRegistry:_RunStartPhase()
+    local startedCount = 0
+    local failedCount = 0
+    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 3 (Start)...")
+
+    for _, systemName in ipairs(self._loadOrder) do
+        local systemInstance = self._systems[systemName]
+        if self._status[systemName] == "INIT" then
+            if systemInstance.Start and type(systemInstance.Start) == "function" then
+                local success, errorMsg = pcall(function() systemInstance:Start() end)
+                if not success then
+                    self._status[systemName] = "ERROR_START"
+                    self._logger:Error("SYSREG", "Startup GAGAL", { system = systemName, error = errorMsg })
+                    failedCount = failedCount + 1
+                else
+                    self._status[systemName] = "READY"
+                    startedCount = startedCount + 1
+                    self._logger:Debug("SYSTEMREGISTRY", "Started (Ready)", { system = systemName })
+                end
             else
-                log_error "Failed to move: $file"
-            fi
-        fi
-    done
-    
-    # Verify all moved
-    local remaining=$(find "$SOURCE_DIR" -name "*.bak" 2>/dev/null | wc -l)
-    
-    if [ "$remaining" -eq 0 ]; then
-        log_success "All backups organized successfully!"
-    else
-        log_warn "$remaining .bak files still in src/ (may be new or failed move)"
-    fi
-    
-    print_stats
-    
-    # Create summary file
-    cat > "${BACKUP_FOLDER}/MANIFEST.txt" << EOF
-OVHL V1.0.0 Standardization - Backup Manifest
-==============================================
+                self._status[systemName] = "READY"
+                startedCount = startedCount + 1
+                self._logger:Debug("SYSTEMREGISTRY", "Started (Pasif)", { system = systemName })
+            end
+        end
+    end
+    return startedCount, failedCount
+end
 
-Total Backups: $TOTAL_BACKUPS
-Moved: $MOVED_BACKUPS
-Errors: $ERRORS
+function SystemRegistry:_RunDestroyPhase()
+    local destroyedCount = 0
+    local failedCount = 0
+    self._logger:Info("SYSTEMREGISTRY", "Memulai Fase 4 (Destroy)...")
 
-Timestamp: $TIMESTAMP
-Date: $(date)
+    for i = #self._loadOrder, 1, -1 do
+        local systemName = self._loadOrder[i]
+        local systemInstance = self._systems[systemName]
+        if self._status[systemName] == "READY" then
+            if systemInstance.Destroy and type(systemInstance.Destroy) == "function" then
+                local success, errorMsg = pcall(function() systemInstance:Destroy() end)
+                if not success then
+                    self._status[systemName] = "ERROR_DESTROY"
+                    self._logger:Error("SYSREG", "Shutdown GAGAL", { system = systemName, error = errorMsg })
+                    failedCount = failedCount + 1
+                else
+                    self._status[systemName] = "DESTROYED"
+                    destroyedCount = destroyedCount + 1
+                end
+            else
+                self._status[systemName] = "DESTROYED"
+                destroyedCount = destroyedCount + 1
+            end
+        end
+    end
+    return destroyedCount, failedCount
+end
 
-Directory Structure:
----
-$BACKUP_FOLDER/
-├── README.txt
-├── MANIFEST.txt (this file)
-├── ReplicatedStorage/
-│   └── OVHL/
-│       ├── Config/
-│       ├── Core/
-│       ├── Shared/
-│       ├── Systems/
-│       └── Types/
-├── ServerScriptService/
-│   └── OVHL/
-│       └── Modules/
-└── StarterPlayer/
-    └── StarterPlayerScripts/
-        └── OVHL/
-            └── Modules/
+function SystemRegistry:GetSystemStatus(systemName) return self._status[systemName] or "NOT_FOUND" end
+function SystemRegistry:GetLoadOrder() return self._loadOrder end
+function SystemRegistry:GetHealthStatus()
+    local health = {}
+    for systemName, manifest in pairs(self._manifests) do
+        health[systemName] = { Status = self._status[systemName] or "REGISTERED", Dependencies = manifest.dependencies or {} }
+    end
+    return health
+end
 
-All original folder structure is preserved for easy restoration.
+return SystemRegistry
 EOF
-    
-    log_success "Created MANIFEST.txt"
-    echo ""
-    log_success "Backup organization complete!"
-    echo -e "${BLUE}Backups stored at: ${NC}$BACKUP_FOLDER"
-}
 
-###############################################################################
-# ENTRY POINT
-###############################################################################
+# ------------------------------------------------------------------------------
+# 3. VERIFIKASI MANDIRI
+# ------------------------------------------------------------------------------
+echo "🔎 Final Verification..."
+if grep -q "V3.4.0" "$SR_FILE"; then
+    echo "❌ GAGAL: V3.4.0 masih ada di ServerRuntime!"
+    exit 1
+else
+    echo "✅ Verified: ServerRuntime V.1.0.1"
+fi
 
-main "$@"
+if grep -q "V3.4.0" "$REG_FILE"; then
+    echo "❌ GAGAL: V3.4.0 masih ada di SystemRegistry!"
+    exit 1
+else
+    echo "✅ Verified: SystemRegistry V.1.0.1"
+fi
+
+echo ""
+echo "✅ NUCLEAR SWEEP SUCCESSFUL. Version Cleaned."

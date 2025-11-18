@@ -4,6 +4,8 @@
 
 # Local development folders
 /lokal/
+/scripts/
+/src copy/
 # Rojo build artifacts
 /roblox/
 *.rbxl

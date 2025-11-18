@@ -1,16 +1,8 @@
 --[[
-OVHL ENGINE V1.0.0
-@Component: NetworkingRouter (Networking)
+OVHL FRAMEWORK V.1.0.1
+@Component: @Component: NetworkingRouter (Core System) (Standard)
 @Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkingRouter
-@Purpose: [TODO: Add purpose]
-@Stability: STABLE
---]]
-
---[[
-OVHL ENGINE V3.3.0 (FINAL)
-@Component: NetworkingRouter (Core System)
-@Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkingRouter
-@Purpose: (V3.3.0) Menggunakan Two-Phase Init. :Start() untuk koneksi Remotes.
+@Purpose: Networking with Middleware Support & Robust Error Handling
 --]]
 
 local NetworkingRouter = {}
@@ -21,21 +13,24 @@ function NetworkingRouter.new()
     self._logger = nil
     self._remotes = {}
     self._handlers = {}
-    self._middlewares = {}
+    self._middlewares = {} -- [PHASE 4] Middleware storage
     self._connectionStats = {}
     return self
 end
 
--- FASE 1: Hanya konstruksi
 function NetworkingRouter:Initialize(logger)
     self._logger = logger
 end
 
--- FASE 2: Aktivasi (Setup Remotes & Connect)
 function NetworkingRouter:Start()
     self:_setupRemotes()
-    self:_startMonitoring()
-    self._logger:Info("NETWORKING", "Networking Router Ready (V3.3.0).")
+    self._logger:Info("NETWORKING", "Networking Router Ready (V.1.0.1 - Middleware Enabled).")
+end
+
+-- [PHASE 4] New API to Register Middleware
+function NetworkingRouter:AddMiddleware(middleware)
+    table.insert(self._middlewares, middleware)
+    self._logger:Debug("NETWORKING", "Middleware registered", {name = middleware.name})
 end
 
 function NetworkingRouter:_setupRemotes()
@@ -95,23 +90,54 @@ function NetworkingRouter:_getOrCreateRemote(folder, className, name)
     return remote
 end
 
-function NetworkingRouter:_handleClientToServer(player, route, data)
-    local handler = self._handlers[route]
-    if handler then pcall(handler, player, data) end
+-- [PHASE 4] Middleware Logic Implementation
+function NetworkingRouter:_runMiddlewares(type, player, route, data)
+    for _, mw in ipairs(self._middlewares) do
+        if type == "Receive" and mw.onReceive then
+            if not mw.onReceive(player, route, data) then return false end
+        elseif type == "Request" and mw.onRequest then
+            if not mw.onRequest(player, route, data) then return false end
+        end
+    end
+    return true
 end
 
-function NetworkingRouter:_handleServerToClient(route, data)
+function NetworkingRouter:_handleClientToServer(player, route, data)
+    -- 1. Check Middleware (Security, RateLimit, Logging)
+    if not self:_runMiddlewares("Receive", player, route, data) then
+        self._logger:Warn("NETWORKING", "Request blocked by middleware", {player=player.Name, route=route})
+        return
+    end
+
+    -- 2. Handle
     local handler = self._handlers[route]
-    if handler then pcall(handler, data) end
+    if handler then 
+        local success, err = pcall(handler, player, data) 
+        if not success then
+            self._logger:Error("NETWORKING", "Handler Error", {route=route, error=err})
+        end
+    else
+        self._logger:Debug("NETWORKING", "No handler found", {route=route})
+    end
 end
 
 function NetworkingRouter:_handleRequestResponse(player, route, data)
+    -- 1. Check Middleware
+    if not self:_runMiddlewares("Request", player, route, data) then
+        return {success=false, error="Blocked by middleware"}
+    end
+
     local handler = self._handlers[route]
     if handler then 
         local success, res = pcall(handler, player, data)
         return success and {success=true, data=res} or {success=false, error=res}
     end
     return {success=false, error="No handler"}
+end
+
+function NetworkingRouter:_handleServerToClient(route, data)
+    local handler = self._handlers[route]
+    if handler then pcall(handler, data) end
 end
 
 function NetworkingRouter:RegisterHandler(route, handler)
@@ -128,20 +154,9 @@ function NetworkingRouter:SendToClient(player, route, data)
     self._remotes.ServerToClient:FireClient(player, route, data)
 end
 
-function NetworkingRouter:_startMonitoring() end -- Stubbed
+function NetworkingRouter:SendToAllClients(route, data)
+    if not self._remotes.ServerToClient then return end
+    self._remotes.ServerToClient:FireAllClients(route, data)
+end
 
 return NetworkingRouter
-
---[[
-@End: NetworkingRouter.lua
-@Version: 3.3.0 (Two-Phase Init)
-@See: docs/ADR_V3-3-0.md
---]]
-
---[[
-@End: NetworkingRouter.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-

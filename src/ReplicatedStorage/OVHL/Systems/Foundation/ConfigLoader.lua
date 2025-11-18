@@ -8,13 +8,9 @@ OVHL ENGINE V1.0.0
 
 --[[
 OVHL ENGINE V3.0.0 - CONFIG LOADER SYSTEM
-Version: 3.0.0
+Version: 1.0.1
 Path: ReplicatedStorage.OVHL.Systems.Foundation.ConfigLoader
-
-FEATURES:
-- Layered config resolution (Engine → Shared → Server/Client)
-- Client-safe config filtering
-- Security protection for sensitive data
+FIXES: Added defensive logger checks
 --]]
 
 local ConfigLoader = {}
@@ -57,11 +53,13 @@ function ConfigLoader:ResolveConfig(moduleName, context)
         end
     end
     
-    self._logger:Debug("CONFIG", "Config resolved", {
-        module = moduleName,
-        context = context,
-        layers = 3
-    })
+    if self._logger then
+        self._logger:Debug("CONFIG", "Config resolved", {
+            module = moduleName,
+            context = context,
+            layers = 3
+        })
+    end
     
     return finalConfig
 end
@@ -125,10 +123,12 @@ function ConfigLoader:GetClientSafeConfig(moduleName)
         end
     end
     
-    self._logger:Debug("CONFIG", "Client-safe config generated", {
-        module = moduleName,
-        filteredKeys = #SENSITIVE_KEYS
-    })
+    if self._logger then
+        self._logger:Debug("CONFIG", "Client-safe config generated", {
+            module = moduleName,
+            filteredKeys = #SENSITIVE_KEYS
+        })
+    end
     
     return clientSafe
 end
@@ -137,8 +137,7 @@ return ConfigLoader
 
 --[[
 @End: ConfigLoader.lua
-@Version: 1.0.0
+@Version: 1.0.1
 @LastUpdate: 2025-11-18
 @Maintainer: OVHL Core Team
 --]]
-

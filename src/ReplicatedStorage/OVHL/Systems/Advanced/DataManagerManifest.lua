@@ -21,7 +21,7 @@ return {
 
 --[[
 @End: DataManagerManifest.lua
-@Version: 3.2.3 (Patched)
+@Version: 1.0.1 (Patched)
 @See: docs/ADR_V3-2-2.md
 --]]
 

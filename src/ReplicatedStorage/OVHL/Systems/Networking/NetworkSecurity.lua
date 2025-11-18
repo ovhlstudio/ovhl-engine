@@ -1,21 +1,8 @@
 --[[
-OVHL ENGINE V1.0.0
+OVHL FRAMEWORK V.1.0.1
 @Component: NetworkSecurity (Security)
 @Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkSecurity
-@Purpose: [TODO: Add purpose]
-@Stability: STABLE
---]]
-
---[[
-OVHL ENGINE V3.0.0 - NETWORK SECURITY MIDDLEWARE
-Version: 3.0.0
-Path: ReplicatedStorage.OVHL.Systems.Networking.NetworkSecurity
-
-FEATURES:
-- Security middleware untuk NetworkingRouter
-- Automatic input validation
-- Rate limiting integration
-- Permission checking
+@Purpose: Security Middleware (Auto-Integrated)
 --]]
 
 local NetworkSecurity = {}
@@ -29,10 +16,22 @@ function NetworkSecurity.new()
     return self
 end
 
-function NetworkSecurity:Initialize(logger, ovhl)
+-- [PHASE 4 FIX] Removed 'ovhl' param, fetch it internally to prevent nil error
+function NetworkSecurity:Initialize(logger)
     self._logger = logger
-    self._ovhl = ovhl
+    self._ovhl = require(script.Parent.Parent.Parent.Core.OVHL)
     self._logger:Info("NETWORKSECURITY", "Network Security initialized")
+end
+
+-- [PHASE 4 FIX] Auto-register to Router on Start
+function NetworkSecurity:Start()
+    local router = self._ovhl.GetSystem("NetworkingRouter")
+    if router and router.AddMiddleware then
+        router:AddMiddleware(self:CreateMiddleware())
+        self._logger:Info("NETWORKSECURITY", "Security Middleware attached to Router")
+    else
+        self._logger:Warn("NETWORKSECURITY", "Failed to attach to NetworkingRouter")
+    end
 end
 
 function NetworkSecurity:CreateMiddleware()
@@ -57,7 +56,7 @@ function NetworkSecurity:_onReceive(player, route, data)
     
     -- Input Validation
     if config.validationSchema then
-        local valid, error = self._ovhl:ValidateInput(config.validationSchema, data)
+        local valid, error = self._ovhl.ValidateInput(config.validationSchema, data)
         if not valid then
             self._logger:Warn("NETWORKSECURITY", "Input validation failed", {
                 player = player.Name,
@@ -97,73 +96,12 @@ function NetworkSecurity:_onReceive(player, route, data)
 end
 
 function NetworkSecurity:_onRequest(player, route, data)
-    -- Same security checks for requests
     return self:_onReceive(player, route, data)
 end
 
 function NetworkSecurity:ConfigureRoute(route, config)
     self._routeConfigs[route] = config
-    
-    self._logger:Debug("NETWORKSECURITY", "Route security configured", {
-        route = route,
-        hasValidation = config.validationSchema ~= nil,
-        hasRateLimit = config.rateLimit ~= nil,
-        hasPermission = config.permission ~= nil
-    })
-    
     return true
 end
 
-function NetworkSecurity:ConfigureModuleRoutes(moduleName, routeConfigs)
-    local configuredCount = 0
-    
-    for route, config in pairs(routeConfigs) do
-        local fullRoute = moduleName .. "." .. route
-        if self:ConfigureRoute(fullRoute, config) then
-            configuredCount = configuredCount + 1
-        end
-    end
-    
-    self._logger:Info("NETWORKSECURITY", "Module routes security configured", {
-        module = moduleName,
-        routes = configuredCount
-    })
-    
-    return configuredCount
-end
-
-function NetworkSecurity:GetRouteConfig(route)
-    return self._routeConfigs[route]
-end
-
-function NetworkSecurity:GetAllConfigs()
-    return self._routeConfigs
-end
-
-function NetworkSecurity:CleanupModule(moduleName)
-    local removedCount = 0
-    
-    for route, _ in pairs(self._routeConfigs) do
-        if string.find(route, "^" .. moduleName .. "%.") then
-            self._routeConfigs[route] = nil
-            removedCount = removedCount + 1
-        end
-    end
-    
-    self._logger:Info("NETWORKSECURITY", "Module security configs cleaned up", {
-        module = moduleName,
-        removed = removedCount
-    })
-    
-    return removedCount
-end
-
 return NetworkSecurity
-
---[[
-@End: NetworkSecurity.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-

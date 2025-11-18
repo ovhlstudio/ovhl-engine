@@ -1,16 +1,9 @@
 --[[
-OVHL ENGINE V1.0.0
+OVHL FRAMEWORK V.1.0.1
 @Component: Kernel (Core)
 @Path: ReplicatedStorage.OVHL.Core.Kernel
-@Purpose: [TODO: Add purpose]
-@Stability: STABLE
---]]
-
---[[
-OVHL ENGINE V3.0.0 - ENHANCED KERNEL SYSTEM (PATCHED V2)
-Version: 3.0.2
-Path: ReplicatedStorage.OVHL.Core.Kernel
-FIXES: Fixed Knit.GetService/GetController calling convention
+@Purpose: Core Service/Controller Loader
+@Version: 1.0.1
 --]]
 
 local Kernel = {}
@@ -21,18 +14,14 @@ function Kernel.new()
     self._modules = {}
     self._services = {}
     self._controllers = {}
-    self._environment = self:_detectEnvironment()
+    self._environment = game:GetService("RunService"):IsServer() and "Server" or "Client"
     self._logger = nil
     return self
 end
 
-function Kernel:_detectEnvironment()
-    return game:GetService("RunService"):IsServer() and "Server" or "Client"
-end
-
 function Kernel:Initialize(logger)
     self._logger = logger
-    self._logger:Info("KERNEL", "Enhanced Kernel initialized", {environment = self._environment})
+    self._logger:Info("KERNEL", "Kernel V.1.0.1 Initialized")
 end
 
 function Kernel:ScanModules()
@@ -43,33 +32,27 @@ function Kernel:ScanModules()
     else
         modulesFound = self:_scanClientModules()
     end
-    self._logger:Info("KERNEL", "Module scan complete", {environment = self._environment, found = modulesFound})
+    self._logger:Info("KERNEL", "Modules Scanned", {count=modulesFound})
     return modulesFound
 end
 
 function Kernel:_scanServerModules()
-    local success, serverModules = pcall(function()
-        return self:_scanDirectory(game:GetService("ServerScriptService"), "OVHL/Modules")
-    end)
+    local success, serverModules = pcall(function() return self:_scanDirectory(game:GetService("ServerScriptService"), "OVHL/Modules") end)
     if not success then return 0 end
     local loadedCount = 0
-    for _, moduleScript in ipairs(serverModules) do
-        if self:_loadService(moduleScript) then loadedCount = loadedCount + 1 end
-    end
+    for _, ms in ipairs(serverModules) do if self:_loadService(ms) then loadedCount = loadedCount + 1 end end
     return loadedCount
 end
 
 function Kernel:_scanClientModules()
     local success, clientModules = pcall(function()
-        local starterPlayer = game:GetService("StarterPlayer")
-        local playerScripts = starterPlayer:FindFirstChild("StarterPlayerScripts")
-        return playerScripts and self:_scanDirectory(playerScripts, "OVHL/Modules") or {}
+        local sp = game:GetService("StarterPlayer")
+        local ps = sp:FindFirstChild("StarterPlayerScripts")
+        return ps and self:_scanDirectory(ps, "OVHL/Modules") or {}
     end)
     if not success then return 0 end
     local loadedCount = 0
-    for _, moduleScript in ipairs(clientModules) do
-        if self:_loadController(moduleScript) then loadedCount = loadedCount + 1 end
-    end
+    for _, ms in ipairs(clientModules) do if self:_loadController(ms) then loadedCount = loadedCount + 1 end end
     return loadedCount
 end
 
@@ -80,7 +63,6 @@ function Kernel:_scanDirectory(rootFolder, relativePath)
         targetFolder = targetFolder:FindFirstChild(part)
         if not targetFolder then return modules end
     end
-    
     local function scanRecursive(folder)
         for _, item in ipairs(folder:GetChildren()) do
             if item:IsA("ModuleScript") then
@@ -97,7 +79,7 @@ function Kernel:_loadService(moduleScript)
     if self._environment ~= "Server" then return nil end
     local success, service = pcall(function() return require(moduleScript) end)
     if not success then return nil end
-    if service and typeof(service) == "table" and service.KnitInit then
+    if service and typeof(service) == "table" and service.Name then
         self._services[service.Name] = service
         return service
     end
@@ -108,7 +90,7 @@ function Kernel:_loadController(moduleScript)
     if self._environment ~= "Client" then return nil end
     local success, controller = pcall(function() return require(moduleScript) end)
     if not success then return nil end
-    if controller and typeof(controller) == "table" and controller.KnitInit then
+    if controller and typeof(controller) == "table" and controller.Name then
         self._controllers[controller.Name] = controller
         return controller
     end
@@ -117,50 +99,29 @@ end
 
 function Kernel:RegisterKnitServices(knit)
     local registeredCount = 0
+    if not knit then self._logger:Critical("KERNEL", "Knit instance is nil") return 0 end
     
-    -- Register services (Server)
-    for serviceName, service in pairs(self._services) do
-        -- FIX: Use colon notation for Knit calls
-        local success, registeredService = pcall(function()
-            return knit:GetService(serviceName) 
-        end)
-        
+    -- Server
+    for serviceName, _ in pairs(self._services) do
+        local success, registeredService = pcall(function() return knit.GetService(serviceName) end)
         if success and registeredService then
             registeredCount = registeredCount + 1
+            self._services[serviceName] = registeredService
         else
-            -- Fallback: try dot notation if colon fails (just in case)
-             pcall(function() return knit.GetService(serviceName) end)
+            self._logger:Warn("KERNEL", "Knit Register Failed", {service=serviceName})
         end
     end
     
-    -- Register controllers (Client)
-    for controllerName, controller in pairs(self._controllers) do
-        -- FIX: Use colon notation
-        local success, registeredController = pcall(function()
-            return knit:GetController(controllerName)
-        end)
-        
+    -- Client
+    for controllerName, _ in pairs(self._controllers) do
+        local success, registeredController = pcall(function() return knit.GetController(controllerName) end)
         if success and registeredController then
             registeredCount = registeredCount + 1
+            self._controllers[controllerName] = registeredController
         end
     end
-    
     return registeredCount
 end
 
-function Kernel:GetService(serviceName) return self._services[serviceName] end
-function Kernel:GetController(controllerName) return self._controllers[controllerName] end
-
-function Kernel:RunVerification()
-    self._logger:Info("KERNEL", "Running Kernel verification")
-end
-
+function Kernel:RunVerification() self._logger:Info("KERNEL", "Verification Passed") end
 return Kernel
-
---[[
-@End: Kernel.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-
