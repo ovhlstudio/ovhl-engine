@@ -1,13 +1,14 @@
 --[[
-OVHL ENGINE V3.0.0 - SMART BOOTSTRAP SYSTEM (PATCHED)
-Version: 3.0.1
-Path: ReplicatedStorage.OVHL.Core.Bootstrap
-FIXES: 
-- Replaced FindFirstChild("path/to") with proper path traversal
+OVHL ENGINE V3.2.3 (HOTFIX)
+@Component: Bootstrap (Core Scanner)
+@Path: ReplicatedStorage.OVHL.Core.Bootstrap
+@Purpose: (V3.2.3) Menambahkan Environment Awareness (Server/Client/Shared) ke Scanner Manifest.
 --]]
 
 local Bootstrap = {}
 Bootstrap.__index = Bootstrap
+
+local SYSTEMS_FOLDER = script.Parent.Parent.Systems
 
 function Bootstrap:DetectEnvironment()
     if game:GetService("RunService"):IsServer() then
@@ -17,165 +18,187 @@ function Bootstrap:DetectEnvironment()
     end
 end
 
-function Bootstrap:ScanSystems()
-    local environment = self:DetectEnvironment()
-    local systemsFolder = script.Parent.Parent.Systems
-    local loadedSystems = {}
-    
-    -- System loading rules
-    local loadRules = {
-        Universal = {
-            "Foundation/SmartLogger",
-            "Foundation/ConfigLoader", 
-            "Security/InputValidator",
-            "Security/RateLimiter",
-            "Security/PermissionCore",
-            "Networking/NetworkingRouter"
-        },
-        ServerOnly = {
-            "Advanced/StateManager",
-            "Advanced/PerformanceMonitor"
-        },
-        ClientOnly = {
-            "UI/UIEngine",
-            "UI/UIManager",
-            "UI/AssetLoader"
-        }
+-- =================================================================
+-- V3.2.3: SCANNER LOGIC (ENVIRONMENT AWARE)
+-- =================================================================
+function Bootstrap:_ScanManifests(logger, environment)
+    local results = {
+        manifests = {},
+        errors = {},
+        unmigrated = {}
     }
-    
-    -- Load universal systems
-    for _, systemPath in ipairs(loadRules.Universal) do
-        self:_loadSystem(systemsFolder, systemPath, loadedSystems)
-    end
-    
-    -- Load environment-specific systems
-    if environment == "Server" then
-        for _, systemPath in ipairs(loadRules.ServerOnly) do
-            self:_loadSystem(systemsFolder, systemPath, loadedSystems)
-        end
-    else
-        for _, systemPath in ipairs(loadRules.ClientOnly) do
-            self:_loadSystem(systemsFolder, systemPath, loadedSystems)
-        end
-    end
-    
-    return loadedSystems
-end
+    local manifestCache = {}
 
-function Bootstrap:_loadSystem(systemsFolder, systemPath, loadedSystems)
-    -- FIX: Split path by '/' and traverse manually
-    local currentObj = systemsFolder
-    for part in string.gmatch(systemPath, "[^/]+") do
-        currentObj = currentObj:FindFirstChild(part)
-        if not currentObj then break end
+    -- === PASS 1: INDEKS SEMUA MANIFEST ===
+    for _, module in ipairs(SYSTEMS_FOLDER:GetDescendants()) do
+        if module:IsA("ModuleScript") and module.Name:match("Manifest$") then
+            local systemName = module.Name:gsub("Manifest$", "")
+            manifestCache[systemName] = module
+        end
     end
     
-    local fullPath = currentObj
-    
-    -- Fallback search logic (removed for stability, stick to explicit paths first)
-    if not fullPath then
-        -- Try searching recursively if explicit path fails
-        local folderName = string.match(systemPath, "([^/]+)$") -- Get last part
-        if folderName then
-            for _, child in ipairs(systemsFolder:GetDescendants()) do
-                if child:IsA("ModuleScript") and child.Name == folderName then
-                    fullPath = child
-                    break
+    -- === PASS 2: COCOKKAN MODUL UTAMA DENGAN MANIFEST (DAN CEK ENVIRONMENT) ===
+    for _, module in ipairs(SYSTEMS_FOLDER:GetDescendants()) do
+        if module:IsA("ModuleScript") and not module.Name:match("Manifest$") then
+            local systemName = module.Name
+            local manifestModule = manifestCache[systemName]
+            
+            if manifestModule then
+                -- V3.2.2 DITEMUKAN (Memiliki Manifest)
+                local success, manifestData = pcall(require, manifestModule)
+                
+                if success then
+                    -- Validasi manifest
+                    if not manifestData.name or not manifestData.dependencies or not manifestData.context then
+                        logger:Error("BOOTSTRAP", "Manifest Rusak!", {file = manifestModule:GetFullName(), details="Missing name/dependencies/context"})
+                        results.errors[systemName] = "Manifest rusak (missing name/dependencies/context)"
+                    else
+                        -- [HOTFIX V3.2.3] CEK ENVIRONMENT
+                        local context = manifestData.context -- "Server", "Client", atau "Shared"
+                        if context == "Shared" or context == environment then
+                            -- Load sistem ini
+                            manifestData.modulePath = module
+                            table.insert(results.manifests, manifestData)
+                        else
+                            -- Ini adalah sistem untuk environment lain, abaikan (bukan error)
+                            logger:Debug("BOOTSTRAP", "Skipping system for env", {system=systemName, context=context})
+                        end
+                    end
+                else
+                    logger:Error("BOOTSTRAP", "Gagal require() manifest!", {file = manifestModule:GetFullName(), error = manifestData})
+                    results.errors[systemName] = "Gagal require() manifest: " .. tostring(manifestData)
+                end
+                
+                manifestCache[systemName] = nil
+            else
+                -- V3.1.0 DITEMUKAN (Tanpa Manifest)
+                if module:IsDescendantOf(SYSTEMS_FOLDER.Foundation) or 
+                   module:IsDescendantOf(SYSTEMS_FOLDER.Security) or
+                   module:IsDescendantOf(SYSTEMS_FOLDER.Networking) or
+                   module:IsDescendantOf(SYSTEMS_FOLDER.UI) or
+                   module:IsDescendantOf(SYSTEMS_FOLDER.Advanced) then
+                   
+                    table.insert(results.unmigrated, module)
                 end
             end
         end
     end
     
-    if fullPath and fullPath:IsA("ModuleScript") then
-        local success, system = pcall(function()
-            local systemModule = require(fullPath)
-            if type(systemModule) == "table" and systemModule.new then
-                return systemModule.new()
-            else
-                return systemModule
-            end
-        end)
+    -- === PASS 3: LAPORKAN MANIFEST YANG MENGGANTUNG ===
+    for systemName, module in pairs(manifestCache) do
+        logger:Warn("BOOTSTRAP", "Dangling Manifest Ditemukan", {
+            details = "Ditemukan ".. module.Name .. " tetapi ".. systemName .. ".lua tidak ditemukan."
+        })
+        results.errors[systemName] = "Dangling Manifest (file *.lua utama hilang)"
+    end
+    
+    return results
+end
+
+-- =================================================================
+-- V3.1.0: FALLBACK LOGIC (UNTUK HYBRID MIGRATION)
+-- =================================================================
+function Bootstrap:_GetLegacySystems(logger, unmigratedModules, environment)
+    local legacyManifests = {}
+    
+    -- SSoT V3.1.0
+    local legacyDependencies = {
+        ConfigLoader = {deps = {}, context = "Shared"},
+        SmartLogger = {deps = {"ConfigLoader"}, context = "Shared"},
+        InputValidator = {deps = {"SmartLogger"}, context = "Shared"},
+        RateLimiter = {deps = {"SmartLogger", "ConfigLoader"}, context = "Shared"},
+        PermissionCore = {deps = {"SmartLogger", "ConfigLoader"}, context = "Shared"},
+        NetworkingRouter = {deps = {"SmartLogger"}, context = "Shared"},
         
-        if success then
-            local systemName = fullPath.Name
-            -- Remove extension if present (though .Name usually doesn't have it in Studio)
-            if string.sub(systemName, -4) == ".lua" then
-                systemName = string.sub(systemName, 1, -5)
+        UIEngine = {deps = {"SmartLogger", "ConfigLoader"}, context = "Client"},
+        UIManager = {deps = {"SmartLogger", "UIEngine"}, context = "Client"},
+        AssetLoader = {deps = {"SmartLogger"}, context = "Client"}
+    }
+    
+    for _, module in ipairs(unmigratedModules) do
+        local systemName = module.Name
+        local legacyInfo = legacyDependencies[systemName]
+        
+        if legacyInfo then
+            -- [HOTFIX V3.2.3] CEK ENVIRONMENT
+            if legacyInfo.context == "Shared" or legacyInfo.context == environment then
+                logger:Warn("BOOTSTRAP", "Sistem V3.1.0 (Legacy) Terdeteksi", {
+                    system = systemName,
+                    details = "Mohon buat file " .. systemName .. "Manifest.lua"
+                })
+                
+                table.insert(legacyManifests, {
+                    name = systemName,
+                    dependencies = legacyInfo.deps,
+                    modulePath = module
+                })
             end
-            
-            loadedSystems[systemName] = system
-            return true
-        else
-            warn("[BOOTSTRAP] Failed to load system: " .. systemPath .. " | Error: " .. tostring(system))
         end
     end
     
-    return false
+    return legacyManifests
 end
 
+-- =================================================================
+-- V3.2.3: BOOTSTRAP INITIALIZE (FUNGSI UTAMA)
+-- =================================================================
 function Bootstrap:Initialize()
     local environment = self:DetectEnvironment()
     local OVHL = require(script.Parent.OVHL)
     
-    -- Load Logger manually first
-    local loggerPath = script.Parent.Parent.Systems.Foundation:FindFirstChild("SmartLogger")
+    -- 1. Load Logger (Manual)
     local logger
+    local loggerPath = SYSTEMS_FOLDER.Foundation:FindFirstChild("SmartLogger")
     if loggerPath then
-        local success, result = pcall(function() 
-            local cls = require(loggerPath)
-            return cls.new()
-        end)
+        local success, result = pcall(function() return require(loggerPath).new() end)
         if success then logger = result end
     end
     
     if logger then
         OVHL:RegisterSystem("SmartLogger", logger)
-        logger:Info("BOOTSTRAP", "Smart Bootstrap Initializing", {environment = environment})
+        logger:Info("BOOTSTRAP", "Smart Bootstrap V3.2.3 (Patched) Initializing", {environment = environment})
     else
-        -- Fallback logger
-        OVHL:RegisterSystem("SmartLogger", {
+        logger = {
             Debug = function(...) end, Info = function(...) print(...) end,
             Warn = function(...) warn(...) end, Error = function(...) warn(...) end,
             Critical = function(...) error(...) end,
-        })
-        print("🚀 OVHL Bootstrap (Fallback Logger)")
+        }
+        OVHL:RegisterSystem("SmartLogger", logger)
+        print("🚀 OVHL Bootstrap V3.2.3 (Fallback Logger)")
     end
-    
-    local Logger = OVHL:GetSystem("SmartLogger")
-    
-    -- Initialize SystemRegistry
-    local SystemRegistry = require(script.Parent.SystemRegistry).new()
-    SystemRegistry:Initialize(OVHL, Logger)
+
+    -- 2. Dapatkan SystemRegistry
+    local SystemRegistry = require(script.Parent.SystemRegistry).new(OVHL, logger)
     OVHL:RegisterSystem("SystemRegistry", SystemRegistry)
     
-    Logger:Info("BOOTSTRAP", "Starting OVHL system discovery")
+    logger:Info("BOOTSTRAP", "Memulai V3.2.3 Manifest Scan (Env-Aware)...")
+
+    -- 3. FASE 1: Pindai V3.2.2 (dengan cek Env)
+    local scanResult = self:_ScanManifests(logger, environment)
     
-    local discoveredSystems = self:ScanSystems()
+    -- 4. FASE 2: Pindai V3.1.0 (dengan cek Env)
+    local legacyManifests = self:_GetLegacySystems(logger, scanResult.unmigrated, environment)
     
-    -- Dependencies Config
-    local systemDependencies = {
-        ConfigLoader = {},
-        SmartLogger = {"ConfigLoader"},
-        InputValidator = {"SmartLogger"},
-        RateLimiter = {"SmartLogger", "ConfigLoader"},
-        PermissionCore = {"SmartLogger", "ConfigLoader"},
-        NetworkingRouter = {"SmartLogger"},
-        UIEngine = {"SmartLogger", "ConfigLoader"},
-        UIManager = {"SmartLogger", "UIEngine"},
-        AssetLoader = {"SmartLogger"},
-        StateManager = {"SmartLogger", "ConfigLoader"},
-        PerformanceMonitor = {"SmartLogger"}
-    }
-    
-    for systemName, systemInstance in pairs(discoveredSystems) do
-        local dependencies = systemDependencies[systemName] or {}
-        SystemRegistry:RegisterSystem(systemName, systemInstance, dependencies)
+    -- 5. FASE 3: Gabungkan Daftar
+    local allManifests = {}
+    for _, m in ipairs(scanResult.manifests) do allManifests[m.name] = m end
+    for _, m in ipairs(legacyManifests) do
+        if not allManifests[m.name] then
+            allManifests[m.name] = m
+        end
     end
     
-    local startedCount, failedCount = SystemRegistry:AutoStartSystems()
-    SystemRegistry:RegisterWithOVHL()
+    logger:Info("BOOTSTRAP", "Scan Selesai", {
+        migrated = #scanResult.manifests,
+        legacy = #legacyManifests,
+        errors = #scanResult.errors,
+        totalLoaded = #scanResult.manifests + #legacyManifests
+    })
+
+    -- 6. FASE 4: Serahkan ke Orchestrator
+    local startedCount, failedCount = SystemRegistry:RegisterAndStartFromManifests(allManifests)
     
-    Logger:Info("BOOTSTRAP", "Bootstrap complete", {
+    logger:Info("BOOTSTRAP", "Bootstrap V3.2.3 complete", {
         environment = environment,
         started = startedCount,
         failed = failedCount
@@ -186,3 +209,9 @@ function Bootstrap:Initialize()
 end
 
 return Bootstrap
+
+--[[
+@End: Bootstrap.lua
+@Version: 3.2.3
+@See: docs/ADR_V3-2-2.md
+--]]
