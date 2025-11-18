@@ -8,7 +8,7 @@ OVHL ENGINE V1.0.0
 
 --[[
 OVHL ENGINE V3.0.0 - SECURITY HELPER
-Version: 3.0.0
+Version: 1.0.1
 Path: ReplicatedStorage.OVHL.Systems.Security.SecurityHelper
 
 FEATURES:
@@ -41,7 +41,7 @@ function SecurityHelper:ValidateRequest(player, action, data, options)
     local rateLimitAction = options.rateLimit or action
     
     -- 1. Input Validation
-    local valid, validationError = self._ovhl:ValidateInput(schemaName, data)
+    local valid, validationError = self._ovhl.ValidateInput(schemaName, data)
     if not valid then
         return false, "Validation failed: " .. validationError
     end
@@ -138,13 +138,13 @@ function SecurityHelper:AuditPlayer(player)
     }
     
     -- Get permission overview
-    local PermissionCore = self._ovhl:GetSystem("PermissionCore")
+    local PermissionCore = self._ovhl.GetSystem("PermissionCore")
     if PermissionCore then
         audit.Permissions = PermissionCore:GetPlayerPermissions(player)
     end
     
     -- Get rate limit status
-    local RateLimiter = self._ovhl:GetSystem("RateLimiter")
+    local RateLimiter = self._ovhl.GetSystem("RateLimiter")
     if RateLimiter then
         audit.RateLimits = RateLimiter:GetPlayerStats(player)
     end

@@ -8,7 +8,7 @@ OVHL ENGINE V1.0.0
 
 --[[
 OVHL ENGINE V3.0.0 - MINIMALMODULE CLIENT CONFIG
-Version: 3.0.0
+Version: 1.0.1
 Path: StarterPlayer.StarterPlayerScripts.OVHL.Modules.MinimalModule.ClientConfig
 --]]
 

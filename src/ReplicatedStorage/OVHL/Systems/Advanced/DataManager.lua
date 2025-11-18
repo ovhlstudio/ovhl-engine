@@ -1,158 +1,98 @@
 --[[
-OVHL ENGINE V1.0.0
-@Component: DataManager (Advanced)
+OVHL FRAMEWORK V.1.0.1
+@Component: @Component: DataManager (Core System) (Standard)
 @Path: ReplicatedStorage.OVHL.Systems.Advanced.DataManager
-@Purpose: [TODO: Add purpose]
-@Stability: STABLE
---]]
-
---[[
-OVHL ENGINE V3.3.0 (FINAL)
-@Component: DataManager (Core System)
-@Path: ReplicatedStorage.OVHL.Systems.Advanced.DataManager
-@Purpose: (V3.3.0) Menggunakan Two-Phase Init. :Start() untuk koneksi DataStore.
+@Purpose: Data Management with Safe Timeout Handling
 --]]
 
 local DataStoreService = game:GetService("DataStoreService")
 
 local DataManager = {}
 DataManager.__index = DataManager
-
-local DEFAULT_DATASTORE_NAME = "OVHL_PlayerDatav3"
+local DEFAULT_DS = "OVHL_PlayerDatav3"
 
 function DataManager.new()
     local self = setmetatable({}, DataManager)
     self._logger = nil
-    self._config = nil
-    self._playerDataStore = nil
-    self._sessionCache = {}
-    self._initialized = false
+    self._ds = nil
+    self._cache = {}
+    self._init = false
     return self
 end
 
--- FASE 1: Hanya konstruksi dan referensi
 function DataManager:Initialize(logger)
     self._logger = logger
-    
-    local OVHL = require(script.Parent.Parent.Parent.Core.OVHL)
-    local ConfigLoader = OVHL:GetSystem("ConfigLoader")
-    self._config = ConfigLoader:LoadEngineConfig()
 end
 
--- FASE 2: Aktivasi (Koneksi ke hardware/servis eksternal)
 function DataManager:Start()
-    local success, ds = pcall(function()
-        return DataStoreService:GetDataStore(DEFAULT_DATASTORE_NAME)
-    end)
-    
+    local success, ds = pcall(function() return DataStoreService:GetDataStore(DEFAULT_DS) end)
     if success then
-        self._playerDataStore = ds
-        self._initialized = true
-        self._logger:Info("DATAMANAGER", "Data Manager Ready", { DataStore = DEFAULT_DATASTORE_NAME })
+        self._ds = ds
+        self._init = true
+        if self._logger then self._logger:Info("DATAMANAGER", "Ready") end
     else
-        self._logger:Critical("DATAMANAGER", "GAGAL terhubung ke DataStore!", { Error = tostring(ds) })
+        if self._logger then self._logger:Critical("DATAMANAGER", "DataStore Connect Fail") end
     end
 end
 
-function DataManager:LoadData(player)
-    if not self._initialized then
-        self._logger:Error("DATAMANAGER", "LoadData dipanggil sebelum DataManager:Start()!", { player = player.Name })
-        return nil
+function DataManager:_waitForInit()
+    if self._init then return true end
+    local start = os.clock()
+    while not self._init do
+        if os.clock() - start > 10 then return false end
+        task.wait(0.1)
     end
-
-    local playerKey = "Player_" .. player.UserId
-    local startTime = os.clock()
-    local dataStore = self._playerDataStore
-    
-    local success, data = pcall(function()
-        return dataStore:GetAsync(playerKey)
-    end)
-    
-    if not success then
-        self._logger:Error("DATAMANAGER", "GetAsync Gagal!", { player = player.Name, error = tostring(data) })
-        return nil
-    end
-    
-    self._logger:Performance("TIMING", "Data Loaded", { duration = os.clock() - startTime })
-
-    if data then
-        self._sessionCache[player.UserId] = data
-        self._logger:Info("DATAMANAGER", "Data berhasil di-load.", { player = player.Name })
-        return data
-    else
-        self._logger:Info("DATAMANAGER", "Membuat data baru (First Join).", { player = player.Name })
-        local newData = self:_createDefaultData(player)
-        self._sessionCache[player.UserId] = newData
-        return newData
-    end
-end
-
-function DataManager:SaveData(player)
-    if not self._initialized then
-        self._logger:Error("DATAMANAGER", "SaveData dipanggil sebelum DataManager:Start()!", { player = player.Name })
-        return false
-    end
-
-    local dataToSave = self._sessionCache[player.UserId]
-    if not dataToSave then
-        self._logger:Warn("DATAMANAGER", "SaveData Gagal (Data di cache nil)", { player = player.Name })
-        return false
-    end
-
-    local playerKey = "Player_" .. player.UserId
-    local startTime = os.clock()
-    local dataStore = self._playerDataStore
-    
-    local success, err = pcall(function()
-        dataToSave.meta.lastSave = os.time()
-        dataStore:SetAsync(playerKey, dataToSave)
-    end)
-    
-    if not success then
-        self._logger:Error("DATAMANAGER", "SetAsync Gagal!", { player = player.Name, error = tostring(err) })
-        return false
-    end
-    
-    self._logger:Performance("TIMING", "Data Saved", { duration = os.clock() - startTime })
-    self._logger:Info("DATAMANAGER", "Data berhasil di-save.", { player = player.Name })
     return true
 end
 
-function DataManager:ClearCache(player)
-    self._sessionCache[player.UserId] = nil
-    self._logger:Debug("DATAMANAGER", "Cache dibersihkan.", { player = player.Name })
+function DataManager:LoadData(player)
+    if not self:_waitForInit() then
+        -- [HOTFIX] Check logger existence before using
+        if self._logger then 
+            self._logger:Critical("DATAMANAGER", "Timeout waiting for init", {player=player.Name})
+        else
+            warn("[DATAMANAGER] CRITICAL TIMEOUT (Logger nil): " .. player.Name)
+        end
+        return nil
+    end
+    
+    local key = "Player_" .. player.UserId
+    local success, data = pcall(function() return self._ds:GetAsync(key) end)
+    
+    if not success then
+        if self._logger then self._logger:Error("DATAMANAGER", "Load Failed", {err=tostring(data)}) end
+        return nil
+    end
+    
+    data = data or self:_createDefault(player)
+    self._cache[player.UserId] = data
+    if self._logger then self._logger:Info("DATAMANAGER", "Loaded", {player=player.Name}) end
+    return data
 end
 
-function DataManager:GetCachedData(player)
-    return self._sessionCache[player.UserId]
+function DataManager:SaveData(player)
+    if not self:_waitForInit() or not self._cache[player.UserId] then return false end
+    local key = "Player_" .. player.UserId
+    local data = self._cache[player.UserId]
+    data.meta.lastSave = os.time()
+    
+    local success, err = pcall(function() self._ds:SetAsync(key, data) end)
+    if not success and self._logger then
+         self._logger:Error("DATAMANAGER", "Save Failed", {err=tostring(err)})
+    end
+    return success
 end
 
-function DataManager:_createDefaultData(player)
+function DataManager:ClearCache(player) self._cache[player.UserId] = nil end
+function DataManager:GetCachedData(player) return self._cache[player.UserId] end
+
+function DataManager:_createDefault(player)
     return {
-        meta = {
-            userId = player.UserId,
-            joinDate = os.time(),
-            lastSave = 0,
-            schemaVersion = "1.0.0",
-        },
+        meta = { userId = player.UserId, joinDate = os.time() },
         currency = { coins = 100, gems = 0 },
         inventory = {},
-        stats = { level = 1, xp = 0 },
+        stats = { level = 1, xp = 0 }
     }
 end
 
 return DataManager
-
---[[
-@End: DataManager.lua
-@Version: 3.3.0 (Two-Phase Init)
-@See: docs/ADR_V3-3-0.md
---]]
-
---[[
-@End: DataManager.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
-
