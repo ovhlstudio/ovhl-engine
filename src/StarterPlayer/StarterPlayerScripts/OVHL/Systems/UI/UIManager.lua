@@ -1,136 +1,104 @@
 --[[
-OVHL FRAMEWORK V.1.1.0
-@Component: UIManager (UI)
-@Path: StarterPlayer.StarterPlayerScripts.OVHL.Systems.UI.UIManager
-@Purpose: Screen lifecycle & Adapter-based Navbar management
+	OVHL FRAMEWORK V.1.3.0 - UI MANAGER (EVENT DRIVEN)
+	@Component: UIManager (UI)
+	@Architecture: Centralized Event Dispatcher (No more closure passing)
 --]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local UIManager = {}
 UIManager.__index = UIManager
 
+-- Simple Signal Implementation (Biar gak perlu dependency luar)
+local function CreateSignal()
+	local sig = {}
+	local callbacks = {}
+	function sig:Connect(fn)
+		table.insert(callbacks, fn)
+		return { Disconnect = function() 
+			for i,f in ipairs(callbacks) do if f == fn then table.remove(callbacks, i) end end 
+		end }
+	end
+	function sig:Fire(...)
+		for _, fn in ipairs(callbacks) do task.spawn(fn, ...) end
+	end
+	return sig
+end
+
 function UIManager.new()
-    local self = setmetatable({}, UIManager)
-    self._logger = nil
-    self._screens = {}
-    self._eventBindings = {}
-    self._adapter = nil
-    self._fallbackAdapter = nil
-    self._adapterName = nil
-    return self
+	local self = setmetatable({}, UIManager)
+	self._logger = nil
+	self._screens = {}
+	self._adapter = nil
+	self._setupComplete = false
+	
+	-- [NEW ARCHITECTURE] CENTRAL EVENT BUS
+	self.OnTopbarClick = CreateSignal() 
+	
+	return self
 end
 
 function UIManager:Initialize(logger)
-    self._logger = logger
-    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
-    local success, cfg = pcall(function() return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig) end)
-    self._adapterName = (success and cfg.Adapters and cfg.Adapters.Navbar) or "InternalAdapter"
-    self._logger:Info("UIMANAGER", "Init", {navbar = self._adapterName})
+	self._logger = logger
+	local success, cfg = pcall(function() return require(ReplicatedStorage.OVHL.Config.EngineConfig) end)
+	self._adapterName = (success and cfg.Adapters and cfg.Adapters.Navbar) or "InternalAdapter"
+	self._logger:Info("UIMANAGER", "Init V1.3 (Event Driven)", {navbar = self._adapterName})
 end
 
 function UIManager:Start()
-    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH TO SHARED ADAPTERS
-    local folder = game:GetService("ReplicatedStorage").OVHL.Systems.Adapters.Navbar
-    
-    local mod = folder:FindFirstChild(self._adapterName)
-    if mod then
-        local cls = require(mod)
-        self._adapter = cls.new()
-        if self._adapter.Initialize then self._adapter:Initialize(self._logger) end
-    end
-    local fallbackMod = folder:FindFirstChild("InternalAdapter")
-    if fallbackMod then
-        local cls = require(fallbackMod)
-        self._fallbackAdapter = cls.new()
-        if self._fallbackAdapter.Initialize then self._fallbackAdapter:Initialize(self._logger) end
-    end
+	if self._setupComplete then return end
+	self._setupComplete = true
+
+	local folder = ReplicatedStorage.OVHL.Systems.Adapters.Navbar
+	local mod = folder:FindFirstChild(self._adapterName)
+	if mod then
+		local cls = require(mod)
+		self._adapter = cls.new()
+		if self._adapter.Initialize then self._adapter:Initialize(self._logger) end
+		
+		-- [CRITICAL] Sambungkan Adapter ke Event Bus kita
+		if self._adapter.SetClickHandler then
+			self._adapter:SetClickHandler(function(buttonId)
+				self._logger:Debug("UIMANAGER", "📣 Dispatching Click Event", {id=buttonId})
+				self.OnTopbarClick:Fire(buttonId)
+			end)
+		end
+	end
 end
 
-function UIManager:RegisterScreen(screenName, screenInstance)
-    self._screens[screenName] = { Instance = screenInstance, Enabled = false }
-    self._logger:Debug("UIMANAGER", "Screen registered", {name=screenName})
+-- Setup Topbar sekarang CUMA REGISTER VISUAL. Gak nerima fungsi klik.
+function UIManager:SetupTopbar(moduleName, providedConfig)
+	local OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
+	local fullConfig = providedConfig or OVHL.GetClientConfig(moduleName)
+
+	if not fullConfig then return false end
+	local topbarConfig = fullConfig.Topbar or (fullConfig.UI and fullConfig.UI.Topbar)
+    if not topbarConfig and providedConfig and providedConfig.Icon then topbarConfig = providedConfig end
+
+	if not topbarConfig or not topbarConfig.Enabled then return nil end
+
+	if self._adapter then
+		-- Kita kirim ID sebagai 'moduleName'. Adapter akan balikin ID ini saat diklik.
+		local success = self._adapter:AddButton(moduleName, topbarConfig)
+		if success then
+			self._logger:Info("UIMANAGER", "✅ Topbar Registered", {id=moduleName})
+		end
+		return success
+	end
+	return false
 end
 
-function UIManager:ShowScreen(screenName)
-    local s = self._screens[screenName]
-    if s then 
-        s.Instance.Enabled = true
-        s.Enabled = true 
-        self._logger:Debug("UIMANAGER", "Show Screen", {name=screenName})
-        return true 
-    end
-    self._logger:Warn("UIMANAGER", "Show failed: Screen not found", {name=screenName})
-    return false
+-- Standard Screen Logic
+function UIManager:RegisterScreen(n, i) self._screens[n] = {Instance=i, Enabled=false} end
+function UIManager:ToggleScreen(n)
+	local s = self._screens[n]
+	if s then s.Instance.Enabled = not s.Instance.Enabled end
 end
-
-function UIManager:HideScreen(screenName)
-    local s = self._screens[screenName]
-    if s then 
-        s.Instance.Enabled = false
-        s.Enabled = false 
-        return true 
-    end
-    return false
+function UIManager:FindComponent(n, c)
+	local s = self._screens[n]
+	return s and s.Instance:FindFirstChild(c, true) or nil
 end
-
-function UIManager:ToggleScreen(screenName)
-    local s = self._screens[screenName]
-    if not s then 
-        self._logger:Warn("UIMANAGER", "Toggle failed: Screen not found", {name=screenName})
-        return false 
-    end
-    if s.Enabled then return self:HideScreen(screenName) else return self:ShowScreen(screenName) end
-end
-
-function UIManager:SetupTopbar(moduleName, _ignoredConfig, explicitOnClick)
-    -- [V1.1.0 ARCHITECTURE FIX] ABSOLUTE PATH
-    local OVHL = require(game:GetService("ReplicatedStorage").OVHL.Core.OVHL)
-    local fullConfig = OVHL.GetClientConfig(moduleName)
-    
-    if not fullConfig then
-        self._logger:Warn("UIMANAGER", "Gagal load config untuk Topbar", {module=moduleName})
-        return false
-    end
-    
-    local topbarConfig = fullConfig.Topbar or (fullConfig.UI and fullConfig.UI.Topbar)
-    
-    if not topbarConfig or not topbarConfig.Enabled then 
-        return nil 
-    end
-
-    if explicitOnClick then
-        topbarConfig.OnClick = explicitOnClick
-    elseif not topbarConfig.OnClick then
-         self._logger:Warn("UIMANAGER", "Topbar setup without OnClick handler", {module=moduleName})
-         return false
-    end
-    
-    local success = false
-    if self._adapter then
-        success = self._adapter:AddButton(moduleName, topbarConfig)
-    end
-    
-    if not success then
-        if self._fallbackAdapter then
-            self._logger:Warn("UIMANAGER", "Main Adapter failed, using Fallback", {module=moduleName})
-            success = self._fallbackAdapter:AddButton(moduleName, topbarConfig)
-        else
-            self._logger:Critical("UIMANAGER", "No Navbar Adapter available!")
-        end
-    end
-    
-    return success
-end
-
-function UIManager:FindComponent(screenName, componentName)
-    local s = self._screens[screenName]
-    if not s then return nil end
-    return s.Instance:FindFirstChild(componentName, true)
-end
-
-function UIManager:BindEvent(component, eventName, callback)
-    if not component then return false end
-    component[eventName]:Connect(callback)
-    return true
-end
+function UIManager:BindEvent(c, e, f) if c then c[e]:Connect(f) return true end return false end
 
 return UIManager

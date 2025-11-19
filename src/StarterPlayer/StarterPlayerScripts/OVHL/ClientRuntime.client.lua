@@ -1,19 +1,39 @@
 --[[
-OVHL ENGINE V1.0.0
-@Component: ClientRuntime.client (Entry Point)
-@Path: StarterPlayer.StarterPlayerScripts.OVHL.ClientRuntime.client
-@Purpose: Client-side bootstrap - initialize OVHL systems and Knit framework
-@Stability: STABLE
+	OVHL ENGINE V1.1.2
+	@Component: ClientRuntime.client (Entry Point)
+	@Path: StarterPlayer.StarterPlayerScripts.OVHL.ClientRuntime.client
+	@Purpose: Client-side bootstrap & Pre-boot Cleanup
+	@Stability: STABLE
 --]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Players = game:GetService("Players")
 
+-- [PRE-BOOT CLEANUP] Hapus sampah UI dari sesi sebelumnya/StarterGui artifacts
+local p = Players.LocalPlayer
+local pg = p:WaitForChild("PlayerGui", 10)
+if pg then
+	-- Hapus GUI TopbarPlus yang mungkin nyangkut/duplikat
+	local zombieTopbar = pg:FindFirstChild("TopbarPlus")
+	if zombieTopbar then
+		zombieTopbar:Destroy()
+		print("🧹 [PRE-BOOT] Deleted stale TopbarPlus GUI")
+	end
+	
+	-- Hapus GUI HD Admin lama (biar refresh)
+	local zombieHD = pg:FindFirstChild("HDAdminGUIs")
+	if zombieHD then
+		zombieHD:Destroy()
+		print("🧹 [PRE-BOOT] Deleted stale HDAdmin GUI")
+	end
+end
+
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local Bootstrap = require(ReplicatedStorage.OVHL.Core.Bootstrap)
 local OVHL = Bootstrap:Initialize()
 local Logger = OVHL.GetSystem("SmartLogger")
 
-Logger:Info("CLIENT", "🚀 Starting OVHL Client Runtime V1.0.0")
+Logger:Info("CLIENT", "🚀 Starting OVHL Client Runtime V1.1.2 (Clean Boot)")
 
 local Kernel = require(ReplicatedStorage.OVHL.Core.Kernel).new()
 Kernel:Initialize(Logger)
@@ -43,7 +63,6 @@ Knit.Start()
 		local registeredCount = Kernel:RegisterKnitServices(Knit)
 		Kernel:RunVerification()
 
-		-- FIX: Safe access to Knit.Controllers (Handle if nil)
 		local controllers = Knit.Controllers or {}
 		local knitControllerCount = 0
 
@@ -67,7 +86,6 @@ Knit.Start()
 	:catch(function(err)
 		Logger:Critical("CLIENT", "Runtime Failed", { error = tostring(err) })
 
-		-- Emergency UI
 		pcall(function()
 			local sg = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
 			local tl = Instance.new("TextLabel", sg)
@@ -76,10 +94,3 @@ Knit.Start()
 			tl.TextColor3 = Color3.new(1, 0, 0)
 		end)
 	end)
-
---[[
-@End: ClientRuntime.client.lua
-@Version: 1.0.0
-@LastUpdate: 2025-11-18
-@Maintainer: OVHL Core Team
---]]
