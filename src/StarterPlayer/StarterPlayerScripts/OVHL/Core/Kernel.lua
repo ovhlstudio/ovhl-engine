@@ -1,4 +1,4 @@
---[[ @Component: Kernel (Client - Syntax Fixed) ]]
+--[[ @Component: Kernel (Client - Self Aware) ]]
 local RS = game:GetService("ReplicatedStorage")
 local PS = game:GetService("Players").LocalPlayer:WaitForChild("PlayerScripts")
 local Players = game:GetService("Players")
@@ -13,7 +13,7 @@ local Kernel = {}
 
 function Kernel.Boot()
     local log = Logger.New("KERNEL")
-    log:Info("🚀 CLIENT STARTUP (Fixed)")
+    log:Info("🚀 CLIENT STARTUP (Phase 37 Sync)")
     
     local ctx = {
         Logger = log,
@@ -33,23 +33,20 @@ function Kernel.Boot()
                 local script = f:FindFirstChild("Controller")
                 if script then
                     local mod = require(script)
+                    -- [NEW] INJECT IDENTITY
+                    mod.Name = f.Name
+                    
                     mod._config = Config.Load(f.Name)
                     mod.Logger = Logger.New(string.upper(f.Name), mod._config and mod._config.Logging)
                     modules[f.Name] = mod
                     log:Debug("Indexed", {Name = f.Name})
                 end
-            elseif f:IsA("ModuleScript") then
-                -- Standalone controller
-                local ctrl = require(f)
-                ctrl.Logger = Logger.New(string.upper(f.Name))
-                modules[f.Name] = ctrl
-                log:Debug("Indexed", {Name = f.Name})
             end
         end
     end
     
     Scan(PS.OVHL.Modules)
-    Scan(PS.OVHL.Controllers) -- Scan Controllers folder
+    Scan(PS.OVHL.Controllers)
 
     log:Info("Phase 1: Init")
     for _, m in pairs(modules) do
@@ -57,32 +54,16 @@ function Kernel.Boot()
     end
     
     log:Info("Phase 2: Start")
-    for _, m in pairs(modules) do
+    for name, m in pairs(modules) do
         task.spawn(function()
             if m._config and m._config.Topbar then
-                ctx.Topbar:Add(m._config.Topbar, function(s) 
+                -- Adapter sekarang simpan referensi pakai 'name' ini
+                ctx.Topbar:Add(name, m._config.Topbar, function(s) 
                     if m.Toggle then m:Toggle(s) end 
                 end)
             end
             if m.Start then m:Start() end
         end)
-    end
-    
-    -- SYNC WATCHER
-    local p = Players.LocalPlayer
-    p:GetAttributeChangedSignal("OVHL_Rank"):Connect(function()
-        log:Info("Perm Update", {
-            Rank = p:GetAttribute("OVHL_Rank"), 
-            Src = p:GetAttribute("OVHL_Src")
-        })
-    end)
-
-    -- INITIAL CHECK
-    if p:GetAttribute("OVHL_Rank") then
-        log:Info("Initial Perm", {
-            Rank = p:GetAttribute("OVHL_Rank"), 
-            Src = p:GetAttribute("OVHL_Src")
-        })
     end
     
     log:Info("✅ CLIENT READY")

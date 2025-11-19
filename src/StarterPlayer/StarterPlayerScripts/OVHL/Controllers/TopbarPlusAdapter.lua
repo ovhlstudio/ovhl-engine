@@ -1,51 +1,73 @@
---[[ @Component: TopbarAdapter (Client - Wally Ready) ]]
+--[[ @Component: TopbarAdapter (With State Control) ]]
 local RS = game:GetService("ReplicatedStorage")
+local LoggerClass = require(RS.OVHL.Core.SmartLogger)
+
 local Adapter = {}
 Adapter.__index = Adapter
 
-function Adapter.New() return setmetatable({}, Adapter) end
+function Adapter.New() 
+    local self = setmetatable({}, Adapter) 
+    self.Logger = LoggerClass.New("UX") 
+    self._registry = {} -- [NEW] Store Icons by Owner Name
+    return self
+end
 
 function Adapter:Init(ctx)
-    self.Log = ctx.Logger
-    
-    -- ROBUST PATH FINDING (Wally Standard First)
-    -- Package name can be 'topbarplus' or 'Icon' depending on naming
     local function GetLib()
         if RS:FindFirstChild("Packages") then
             return RS.Packages:FindFirstChild("topbarplus") or 
                    RS.Packages:FindFirstChild("Icon") or
-                   RS.Packages:FindFirstChild("_Index") and RS.Packages._Index:FindFirstChild("1foreverhd_topbarplus@3.4.0") -- Raw Wally Path
+                   RS.Packages:FindFirstChild("_Index") and RS.Packages._Index:FindFirstChild("1foreverhd_topbarplus@3.4.0")
         end
-        return RS:FindFirstChild("Icon") -- Fallback Manual
+        return RS:FindFirstChild("Icon")
     end
 
     local module = GetLib()
     if module then
         local ok, lib = pcall(require, module)
-        if ok then 
-            self.Lib = lib
-            self.Log:Info("UX", "Icon Lib Loaded", {Path = module:GetFullName()})
-        else
-            self.Log:Error("UX", "Require Fail", {Path = module.Name})
-        end
-    else
-        self.Log:Critical("UX", "MISSING DEPENDENCY: TopbarPlus (Check Wally)")
+        if ok then self.Lib = lib end
     end
 end
 
-function Adapter:Start() end
-
-function Adapter:Add(cfg, cb)
+function Adapter:Add(ownerName, cfg, cb)
     if not self.Lib or not cfg.Enabled then return end
-    local success, err = pcall(function()
+    
+    local success, icon = pcall(function()
         local ico = self.Lib.new()
         if cfg.Text then ico:setLabel(cfg.Text) end
         if cfg.Icon then ico:setImage(cfg.Icon) end
         if cfg.Order then ico:setOrder(cfg.Order) end
         
-        ico:bindEvent("selected", function() cb(true) end)
-        ico:bindEvent("deselected", function() cb(false) end)
+        -- BIND EVENTS
+        ico:bindEvent("selected", function() 
+            self.Logger:Info("Topbar Toggle", {Icon=cfg.Text, State="OPEN"}) 
+            cb(true) 
+        end)
+        ico:bindEvent("deselected", function() 
+            self.Logger:Info("Topbar Toggle", {Icon=cfg.Text, State="CLOSED"})
+            cb(false) 
+        end)
+        
+        return ico
     end)
-    if not success then self.Log:Warn("UX", "Icon Error", {Err = err}) end
+    
+    if success and icon then
+        self.Logger:Info("Icon Registered", {Owner=ownerName, Label=cfg.Text})
+        self._registry[ownerName] = icon -- [NEW] Save Ref
+    end
 end
+
+-- [NEW] API FOR CONTROLLERS
+function Adapter:SetState(ownerName, isActive)
+    local icon = self._registry[ownerName]
+    if not icon then return end
+    
+    -- Mencegah loop infinite dengan mengecek state saat ini
+    if isActive and not icon.isSelected then
+        icon:select()
+    elseif not isActive and icon.isSelected then
+        icon:deselect()
+    end
+end
+
 return Adapter
