@@ -1,18 +1,3 @@
-#!/bin/bash
-
-# ==============================================================================
-# OVHL V2: PHASE 31 - VICTORY LAP (CONTROLLER POLISH)
-# Target: Make Controller output nice errors instead of 'nil' when Rate Limited.
-# ==============================================================================
-
-set -e
-set -u
-
-echo -e "\n🎉 [OVHL V2] APPLYING FINAL POLISH..."
-
-CL_MOD="src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/PrototypeShop"
-
-cat > "$CL_MOD/Controller.lua" << 'EOF'
 local Ctrl = {}
 
 function Ctrl:Init(ctx)
@@ -56,7 +41,3 @@ function Ctrl:ReqBuy(item)
     end)
 end
 return Ctrl
-EOF
-
-echo "✅ OVHL V2 IS FINISHED."
-echo "Enjoy your Enterprise Engine."
