@@ -3,8 +3,13 @@
 registry = "test"
 
 [[package]]
+name = "1foreverhd/topbarplus"
+version = "3.4.0"
+dependencies = []
+
+[[package]]
 name = "elttob/fusion"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = []
 
 [[package]]
@@ -15,4 +20,4 @@ dependencies = []
 [[package]]
 name = "ovhl-engine/v2"
 version = "2.0.0"
-dependencies = [["Fusion", "elttob/fusion@0.2.0"], ["Promise", "evaera/promise@4.0.0"]]
+dependencies = [["Fusion", "elttob/fusion@0.3.0"], ["Promise", "evaera/promise@4.0.0"], ["topbarplus", "1foreverhd/topbarplus@3.4.0"]]

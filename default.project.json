@@ -1,37 +1,25 @@
 {
-  "name": "ovhl-engine-v2",
+  "name": "ovhl-v2-enterprise",
   "tree": {
     "$className": "DataModel",
-
-    "ReplicatedFirst": {
-      "$className": "ReplicatedFirst",
-      "$path": "src/ReplicatedFirst",
-      "$ignoreUnknownInstances": true
-    },
 
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "$ignoreUnknownInstances": true,
+      "OVHL": {
+        "$path": "src/ReplicatedStorage/OVHL"
+      },
       "Packages": {
         "$path": "Packages"
-      },
-      "OVHL_Shared": {
-        "$path": "src/ReplicatedStorage/OVHL_Shared"
       }
     },
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "$ignoreUnknownInstances": true,
-      "OVHL_Server": {
-        "$path": "src/ServerScriptService/OVHL_Server"
+      "OVHL": {
+        "$path": "src/ServerScriptService/OVHL"
       }
-    },
-
-    "ServerStorage": {
-      "$className": "ServerStorage",
-      "$path": "src/ServerStorage",
-      "$ignoreUnknownInstances": true
     },
 
     "StarterPlayer": {
@@ -40,20 +28,43 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "$ignoreUnknownInstances": true,
-        "OVHL_Client": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/OVHL_Client"
+        "OVHL": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/OVHL"
         }
       }
     },
 
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true
+    },
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$ignoreUnknownInstances": true
+    },
+    "StarterPack": {
+      "$className": "StarterPack",
+      "$ignoreUnknownInstances": true
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true
+    },
     "Lighting": {
       "$className": "Lighting",
       "$ignoreUnknownInstances": true
     },
-
-    "Workspace": {
-      "$className": "Workspace",
+    "SoundService": {
+      "$className": "SoundService",
       "$ignoreUnknownInstances": true
+    },
+    "HttpService": {
+      "$className": "HttpService",
+      "$ignoreUnknownInstances": true
+    },
+    "TestService": {
+        "$className": "TestService",
+        "$ignoreUnknownInstances": true
     }
   }
 }
