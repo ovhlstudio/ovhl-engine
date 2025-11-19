@@ -1,38 +1,56 @@
 --[[
-OVHL FRAMEWORK V.1.0.1
+OVHL FRAMEWORK V.1.1.0
 @Component: OVHL (Core API Gateway)
 @Path: ReplicatedStorage.OVHL.Core.OVHL
-@Purpose: Central API Gateway (Static Dot Notation)
-@Version: 1.0.1
+@Purpose: Central API Gateway (Supports V1.1.0 Split Architecture)
+@Version: 1.1.0
 --]]
 
 local OVHL = {}
--- Note: OVHL is now a Static Library, no metatable needed for self context.
+local RunService = game:GetService("RunService")
 
 local _systems = {}
 local _modules = {}
 local _initialized = false
 
--- [REFACTOR] Changed to Dot Notation
+-- [V1.1.0] Helper: Get Search Paths
+local function GetSearchFolders()
+    local paths = {}
+    
+    -- 1. Shared (Always)
+    table.insert(paths, game:GetService("ReplicatedStorage").OVHL.Systems)
+    
+    -- 2. Server Only
+    if RunService:IsServer() then
+        table.insert(paths, game:GetService("ServerScriptService").OVHL.Systems)
+    end
+    
+    -- 3. Client Only
+    if RunService:IsClient() then
+        local ps = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerScripts")
+        if ps then
+            local ovhl = ps:FindFirstChild("OVHL")
+            if ovhl then table.insert(paths, ovhl:FindFirstChild("Systems")) end
+        end
+    end
+    
+    return paths
+end
+
 function OVHL.GetSystem(systemName)
+    -- 1. Fast Path: Memory Cache
     if _systems[systemName] then return _systems[systemName] end
     
-    -- Recursive search fallback
+    -- 2. Slow Path: Deep Search (Fallback if not registered yet)
     local success, system = pcall(function()
-        -- Check ReplicatedStorage (Shared/Client)
-        local rsSystems = game:GetService("ReplicatedStorage").OVHL.Systems
-        for _, child in ipairs(rsSystems:GetDescendants()) do
-            if child:IsA("ModuleScript") and child.Name == systemName then
-                return require(child)
-            end
-        end
+        local folders = GetSearchFolders()
         
-        -- Check ServerScriptService (Server Only) - [PHASE 5 ADDITION]
-        if game:GetService("RunService"):IsServer() then
-            local ssSystems = game:GetService("ServerScriptService").OVHL.Systems
-            for _, child in ipairs(ssSystems:GetDescendants()) do
-                if child:IsA("ModuleScript") and child.Name == systemName then
-                    return require(child)
+        for _, folder in ipairs(folders) do
+            if folder then
+                for _, child in ipairs(folder:GetDescendants()) do
+                    if child:IsA("ModuleScript") and child.Name == systemName then
+                        return require(child)
+                    end
                 end
             end
         end
@@ -40,7 +58,6 @@ function OVHL.GetSystem(systemName)
     end)
     
     if success and system then
-        _systems[systemName] = system
         return system
     end
     return nil

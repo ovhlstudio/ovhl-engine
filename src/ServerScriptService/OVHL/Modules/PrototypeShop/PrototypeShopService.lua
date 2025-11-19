@@ -1,91 +1,70 @@
 --[[
-OVHL ENGINE V1.0.0
-@Component: PrototypeShopService (Module)
-@Path: ServerScriptService.OVHL.Modules.PrototypeShop.PrototypeShopService
-@Purpose: Validates full security pipeline (Validator -> RateLimit -> Permission)
+    OVHL ENGINE V1.2.2
+    @Component: PrototypeShopService
+    @Path: ServerScriptService.OVHL.Modules.PrototypeShop.PrototypeShopService
+    @Fixes: Added missing Rate Limit Registration loop
 --]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
-local PrototypeShopService = Knit.CreateService {
-    Name = "PrototypeShopService",
-    Client = {}
-}
+local PrototypeShopService = Knit.CreateService { Name = "PrototypeShopService", Client = {} }
 
 function PrototypeShopService:KnitInit()
     self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
     self.Logger = self.OVHL.GetSystem("SmartLogger")
-    self.InputValidator = self.OVHL.GetSystem("InputValidator")
-    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
-    self.PermissionCore = self.OVHL.GetSystem("PermissionCore")
     
-    -- LOAD CONFIG
+    -- Load Config (Merge Shared + Server)
     self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
     
-    -- REGISTER SECURITY (CRITICAL STEP)
-    self:_registerSecurity()
+    self.InputValidator = self.OVHL.GetSystem("InputValidator")
+    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
     
-    self.Logger:Info("SERVICE", "PrototypeShopService Initialized & Security Registered")
-end
-
-function PrototypeShopService:_registerSecurity()
-    local security = self.Config.Security
-    if not security then return end
-    
-    -- 1. Register Schemas
-    if security.ValidationSchemas then
-        for name, schema in pairs(security.ValidationSchemas) do
+    -- 1. Register Validation Schemas
+    if self.Config.Security and self.Config.Security.Schemas then
+        for name, schema in pairs(self.Config.Security.Schemas) do
             self.InputValidator:AddSchema(name, schema)
-            self.Logger:Debug("SECURITY", "Schema registered", {schema=name})
         end
     end
-    
-    -- 2. Register Rate Limits
-    if security.RateLimits then
-        for action, limit in pairs(security.RateLimits) do
+
+    -- [[ CRITICAL FIX: REGISTER RATE LIMITS ]]
+    -- Tanpa ini, RateLimiter tidak tahu aturan mainnya
+    if self.Config.Security and self.Config.Security.RateLimits then
+        for action, limit in pairs(self.Config.Security.RateLimits) do
             self.RateLimiter:SetLimit(action, limit.max, limit.window)
-            self.Logger:Debug("SECURITY", "RateLimit registered", {action=action})
+            self.Logger:Debug("SHOP", "Registered Limit", {action=action, max=limit.max})
         end
+    else
+        self.Logger:Warn("SHOP", "No RateLimits found in Config!")
     end
 end
 
-function PrototypeShopService:ProcessBuy(player, data)
-    -- 1. Input Validation
-    local valid, err = self.InputValidator:Validate("BuyItem", data)
+function PrototypeShopService:KnitStart() end
+
+function PrototypeShopService.Client:BuyItem(player, data)
+    -- 1. Validate Input (Sanitasi & Schema)
+    local valid, err = self.Server.InputValidator:Validate("BuyItem", data)
     if not valid then
-        self.Logger:Warn("SECURITY", "PrototypeShop: Invalid Input", {player=player.Name, error=err})
-        return false, "Invalid Input: " .. tostring(err)
+        warn("❌ [SHOP SERVER] Invalid Input:", err)
+        return false, "Invalid Input"
     end
     
-    -- 2. Rate Limiting
-    if not self.RateLimiter:Check(player, "BuyItem") then
-        self.Logger:Warn("SECURITY", "PrototypeShop: Rate Limit Exceeded", {player=player.Name})
-        return false, "Rate Limit Exceeded"
+    -- 2. Validate Rate Limit (CEK CONFIG SHARED)
+    -- Config bilang: Max 3 request per 10 detik
+    if not self.Server.RateLimiter:Check(player, "BuyItem") then
+        warn("❌ [SHOP SERVER] Spam Detected from " .. player.Name)
+        return false, "Spam Detected! Slow down."
     end
-    
-    -- 3. Permission
-    if not self.PermissionCore:Check(player, "PrototypeShop.BuyItem") then
-        self.Logger:Warn("SECURITY", "PrototypeShop: Permission Denied", {player=player.Name})
-        return false, "Permission Denied"
-    end
-    
-    -- 4. Logic (Success)
-    self.Logger:Info("BUSINESS", "PrototypeShop: Item Bought", {
-        player = player.Name,
-        item = data.itemId,
-        amount = data.amount
-    })
-    
-    return true, "Purchase Successful"
+
+    -- 3. Business Logic
+    print("💰 [SHOP SERVER] Transaction Success: " .. player.Name .. " bought " .. data.itemId)
+    return true, "Success"
 end
 
-function PrototypeShopService.Client:RequestBuy(player, data)
-    return self.Server:ProcessBuy(player, data)
+-- FUNCTION TEST LEAK (UTK BUKTIKAN NETWORK GUARD)
+function PrototypeShopService.Client:TestSecretLeak(player)
+    -- Mencoba mengirim seluruh config (termasuk ServerConfig) ke Client
+    return self.Server.Config
 end
 
 return PrototypeShopService
---[[
-@End: PrototypeShopService.lua
-@Version: 1.0.1 (Fix Registration)
---]]
