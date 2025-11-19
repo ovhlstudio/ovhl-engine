@@ -1,8 +1,3 @@
-#!/bin/bash
-
-echo "🔧 FIXING CIRCULAR DEPENDENCY & ENHANCING LOG DETAIL..."
-
-cat > src/ReplicatedStorage/OVHL_Shared/Library/Adapters/Permission/HDAdminAdapter.lua << 'EOF'
 -- [[ HD ADMIN ADAPTER V2 (FIXED & DETAILED) ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -158,7 +153,3 @@ function HDAdminAdapter:GetRank(player)
 end
 
 return HDAdminAdapter
-EOF
-
-echo "✅ HD ADMIN ADAPTER FIXED."
-echo "👉 Recursion removed. Logging enhanced (User+ID+Source)."

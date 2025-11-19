@@ -1,0 +1,8 @@
+-- [[ GLOBAL CONSTANTS (PORTED) ]]
+return {
+    ENGINE = { VERSION = "2.0.0", NAME = "OVHL V2" },
+    NETWORKING = { DEFAULT_TIMEOUT = 10, MAX_RETRIES = 3 },
+    UI = {
+        Z_INDEX = { BACKGROUND = 0, CONTENT = 10, HEADER = 20, OVERLAY = 50, TOAST = 100 }
+    }
+}

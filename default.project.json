@@ -1,22 +1,59 @@
 {
-    "name": "ovhl-engine",
-    "tree": {
-        "$className": "DataModel",
-        "ReplicatedStorage": {
-            "$className": "ReplicatedStorage",
-            "OVHL": {"$path": "src/ReplicatedStorage/OVHL"},
-            "Packages": {"$path": "packages"}
-        },
-        "ServerScriptService": {
-            "$className": "ServerScriptService", 
-            "OVHL": {"$path": "src/ServerScriptService/OVHL"}
-        },
-        "StarterPlayer": {
-            "$className": "StarterPlayer",
-            "StarterPlayerScripts": {
-                "$className": "StarterPlayerScripts",
-                "OVHL": {"$path": "src/StarterPlayer/StarterPlayerScripts/OVHL"}
-            }
+  "name": "ovhl-engine-v2",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "$path": "src/ReplicatedFirst",
+      "$ignoreUnknownInstances": true
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Packages": {
+        "$path": "Packages"
+      },
+      "OVHL_Shared": {
+        "$path": "src/ReplicatedStorage/OVHL_Shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "OVHL_Server": {
+        "$path": "src/ServerScriptService/OVHL_Server"
+      }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$path": "src/ServerStorage",
+      "$ignoreUnknownInstances": true
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "OVHL_Client": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/OVHL_Client"
         }
+      }
+    },
+
+    "Lighting": {
+      "$className": "Lighting",
+      "$ignoreUnknownInstances": true
+    },
+
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true
     }
+  }
 }
