@@ -1,19 +1,3 @@
-#!/bin/bash
-
-# ==============================================================================
-# OVHL V2: PHASE 57 - SCOPE LIFECYCLE REPAIR
-# Problem: 'doCleanup()' kills the scope permanently. Cannot reuse.
-# Fix: Create a NEW innerScope for every render cycle.
-# ==============================================================================
-
-set -e
-set -u
-
-echo -e "\n🔧 [OVHL V2] IMPLEMENTING DYNAMIC SCOPE REGENERATION..."
-
-CL_INV="src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/Inventory"
-
-cat > "$CL_INV/View.lua" << 'EOF'
 --[[ @Component: InventoryView (Scope Fix) ]]
 local RS = game:GetService("ReplicatedStorage")
 local Fusion = require(RS.Packages.Fusion)
@@ -132,6 +116,3 @@ function View.New(cfg, state, cb)
     return { Instance=screen, Toggle=function(v) screen.Enabled=v end, Destroy=function() scope:doCleanup() end }
 end
 return View
-EOF
-
-echo "✅ SCOPE POISONING FIXED."
