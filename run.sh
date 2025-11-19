@@ -1,52 +1,81 @@
-cat << 'EOF' > src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/PrototypeShop/PrototypeShopController.lua
+#!/bin/bash
+set -e
+FILE="src/ServerScriptService/OVHL/Modules/PrototypeShop/PrototypeShopService.lua"
+
+echo -e "\033[0;31m🚑 [FIX] RESTORING MISSING RATE LIMIT LOGIC IN SHOP SERVICE...\033[0m"
+
+cat << 'EOF' > "$FILE"
+--[[
+    OVHL ENGINE V1.2.2
+    @Component: PrototypeShopService
+    @Path: ServerScriptService.OVHL.Modules.PrototypeShop.PrototypeShopService
+    @Fixes: Added missing Rate Limit Registration loop
+--]]
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local PrototypeShopController = Knit.CreateController { Name = "PrototypeShopController" }
 
-function PrototypeShopController:KnitInit()
-	self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-	self.Logger = self.OVHL.GetSystem("SmartLogger")
-	self.UIManager = self.OVHL.GetSystem("UIManager")
-	self.UIEngine = self.OVHL.GetSystem("UIEngine")
-	self.Config = self.OVHL.GetClientConfig("PrototypeShop")
-	self._setup = false
+local PrototypeShopService = Knit.CreateService { Name = "PrototypeShopService", Client = {} }
+
+function PrototypeShopService:KnitInit()
+    self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
+    self.Logger = self.OVHL.GetSystem("SmartLogger")
+    
+    -- Load Config (Merge Shared + Server)
+    self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
+    
+    self.InputValidator = self.OVHL.GetSystem("InputValidator")
+    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
+    
+    -- 1. Register Validation Schemas
+    if self.Config.Security and self.Config.Security.Schemas then
+        for name, schema in pairs(self.Config.Security.Schemas) do
+            self.InputValidator:AddSchema(name, schema)
+        end
+    end
+
+    -- [[ CRITICAL FIX: REGISTER RATE LIMITS ]]
+    -- Tanpa ini, RateLimiter tidak tahu aturan mainnya
+    if self.Config.Security and self.Config.Security.RateLimits then
+        for action, limit in pairs(self.Config.Security.RateLimits) do
+            self.RateLimiter:SetLimit(action, limit.max, limit.window)
+            self.Logger:Debug("SHOP", "Registered Limit", {action=action, max=limit.max})
+        end
+    else
+        self.Logger:Warn("SHOP", "No RateLimits found in Config!")
+    end
 end
 
-function PrototypeShopController:KnitStart()
-	if self._setup then return end
-	self._setup = true
-	self.Service = Knit.GetService("PrototypeShopService")
+function PrototypeShopService:KnitStart() end
 
-	-- 1. Setup Screen (Hidden)
-	self:SetupUI() 
+function PrototypeShopService.Client:BuyItem(player, data)
+    -- 1. Validate Input (Sanitasi & Schema)
+    local valid, err = self.Server.InputValidator:Validate("BuyItem", data)
+    if not valid then
+        warn("❌ [SHOP SERVER] Invalid Input:", err)
+        return false, "Invalid Input"
+    end
+    
+    -- 2. Validate Rate Limit (CEK CONFIG SHARED)
+    -- Config bilang: Max 3 request per 10 detik
+    if not self.Server.RateLimiter:Check(player, "BuyItem") then
+        warn("❌ [SHOP SERVER] Spam Detected from " .. player.Name)
+        return false, "Spam Detected! Slow down."
+    end
 
-	-- 2. Register Visual Button (Pake Config, gak pake fungsi)
-	self.UIManager:SetupTopbar("PrototypeShop", self.Config)
-
-	-- 3. LISTEN TO EVENT (Filter ID Unik)
-	self.UIManager.OnTopbarClick:Connect(function(clickedId)
-		-- Cek apakah yang diklik itu "PrototypeShop"?
-		if clickedId == "PrototypeShop" then
-			self.Logger:Info("SHOP", "🛒 SHOP MODULE: Button click received. Opening Shop.")
-			self.UIManager:ToggleScreen("ShopMain")
-		end
-	end)
+    -- 3. Business Logic
+    print("💰 [SHOP SERVER] Transaction Success: " .. player.Name .. " bought " .. data.itemId)
+    return true, "Success"
 end
 
-function PrototypeShopController:SetupUI()
-	-- (Kode SetupUI visual sama kayak sebelumnya, dipersingkat disini)
-	local s = self.UIEngine:CreateScreen("ShopMain", self.Config)
-	if s then
-		s.Enabled = false
-		local f = Instance.new("Frame", s)
-		f.Size = UDim2.new(0,300,0,200)
-		f.Position = UDim2.new(0.5,-150,0.5,-100)
-		f.BackgroundColor3 = Color3.fromRGB(30,30,30)
-		local t = Instance.new("TextLabel", f)
-		t.Text = "SHOP V1.3"; t.Size = UDim2.new(1,0,1,0); t.TextColor3 = Color3.new(1,1,1)
-		self.UIManager:RegisterScreen("ShopMain", s)
-	end
+-- FUNCTION TEST LEAK (UTK BUKTIKAN NETWORK GUARD)
+function PrototypeShopService.Client:TestSecretLeak(player)
+    -- Mencoba mengirim seluruh config (termasuk ServerConfig) ke Client
+    return self.Server.Config
 end
 
-return PrototypeShopController
+return PrototypeShopService
 EOF
+
+echo -e "\033[0;32m✅ Service Patched. Rate Limiting is now ACTIVE.\033[0m"
+echo "➡️  Sync Rojo & Test Spam Click."

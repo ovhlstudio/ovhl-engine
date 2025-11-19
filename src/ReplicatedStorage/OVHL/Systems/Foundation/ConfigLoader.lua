@@ -1,117 +1,73 @@
 --[[
-	OVHL ENGINE V.1.2.2 - CONFIG LOADER SYSTEM (PATCHED)
-	@Component: ConfigLoader (Foundation)
-	@Path: ReplicatedStorage.OVHL.Systems.Foundation.ConfigLoader
-	@Fixes: CRITICAL! MergeDeep now performs true deep copy to prevent EngineConfig pollution.
+    OVHL ENGINE V1.2.0
+    @Component: ConfigLoader (Foundation)
+    @Path: ReplicatedStorage.OVHL.Systems.Foundation.ConfigLoader
+    @Purpose: Secure Deep Merging of Configurations (Anti-Poisoning)
+    @State: Refactor V1.2.0 (Deep Merge Fix)
 --]]
 
 local ConfigLoader = {}
 ConfigLoader.__index = ConfigLoader
 
 function ConfigLoader.new()
-	local self = setmetatable({}, ConfigLoader)
-	self._logger = nil
-	return self
+    local self = setmetatable({}, ConfigLoader)
+    self._logger = nil
+    return self
 end
 
 function ConfigLoader:Initialize(logger)
-	self._logger = logger
-	self._logger:Info("CONFIG", "ConfigLoader initialized (DeepMerge Fixed)")
+    self._logger = logger
+    self._logger:Info("CONFIG", "ConfigLoader Ready V1.2.0 (Deep Merge Fixed)")
+end
+
+-- [CRITICAL FIX] Deep Copy Logic
+function ConfigLoader:MergeDeep(target, source)
+    for key, value in pairs(source) do
+        if type(value) == "table" then
+            if type(target[key]) ~= "table" then
+                target[key] = {}
+            end
+            self:MergeDeep(target[key], value)
+        else
+            target[key] = value
+        end
+    end
 end
 
 function ConfigLoader:ResolveConfig(moduleName, context)
-	local finalConfig = {}
-
-	-- LAYER 1: Engine Config
-	local engineConfig = self:LoadEngineConfig()
-	self:MergeDeep(finalConfig, engineConfig)
-
-	-- LAYER 2: Shared Module Config
-	local sharedConfig = self:LoadSharedConfig(moduleName)
-	if sharedConfig then
-		self:MergeDeep(finalConfig, sharedConfig)
-	end
-
-	-- LAYER 3: Context-Specific Config
-	if context == "Server" then
-		local serverConfig = self:LoadServerConfig(moduleName)
-		if serverConfig then
-			self:MergeDeep(finalConfig, serverConfig)
-		end
-	elseif context == "Client" then
-		local clientConfig = self:LoadClientConfig(moduleName)
-		if clientConfig then
-			self:MergeDeep(finalConfig, clientConfig)
-		end
-	end
-
-	return finalConfig
-end
-
-function ConfigLoader:LoadEngineConfig()
-	local success, config = pcall(function()
-		return require(game:GetService("ReplicatedStorage").OVHL.Config.EngineConfig)
-	end)
-	return success and config or {}
-end
-
-function ConfigLoader:LoadSharedConfig(moduleName)
-	local success, config = pcall(function()
-		return require(game:GetService("ReplicatedStorage").OVHL.Shared.Modules[moduleName].SharedConfig)
-	end)
-	return success and config or nil
-end
-
-function ConfigLoader:LoadServerConfig(moduleName)
-	local success, config = pcall(function()
-		return require(game:GetService("ServerScriptService").OVHL.Modules[moduleName].ServerConfig)
-	end)
-	return success and config or nil
-end
-
-function ConfigLoader:LoadClientConfig(moduleName)
-	local success, config = pcall(function()
-		return require(game:GetService("StarterPlayer").StarterPlayerScripts.OVHL.Modules[moduleName].ClientConfig)
-	end)
-	return success and config or nil
-end
-
--- [CRITICAL FIX] TRUE DEEP MERGE
--- Mencegah referensi table 'source' mencemari 'target'
-function ConfigLoader:MergeDeep(target, source)
-	for key, value in pairs(source) do
-		if type(value) == "table" then
-			-- Jika target belum punya table, BUAT BARU (Break Reference)
-			if type(target[key]) ~= "table" then
-				target[key] = {}
-			end
-			-- Recurse ke dalam table baru tersebut
-			self:MergeDeep(target[key], value)
-		else
-			-- Jika primitive value, langsung assign
-			target[key] = value
-		end
-	end
+    local finalConfig = {}
+    local RS = game:GetService("ReplicatedStorage")
+    local SSS = game:GetService("ServerScriptService")
+    local SPS = game:GetService("StarterPlayer").StarterPlayerScripts
+    
+    local success, engineCfg = pcall(require, RS.OVHL.Config.EngineConfig)
+    if success then self:MergeDeep(finalConfig, engineCfg) end
+    
+    local sPath = RS.OVHL.Shared.Modules:FindFirstChild(moduleName)
+    if sPath and sPath:FindFirstChild("SharedConfig") then
+        local succ, sCfg = pcall(require, sPath.SharedConfig)
+        if succ then self:MergeDeep(finalConfig, sCfg) end
+    end
+    
+    if context == "Server" then
+        local srvPath = SSS.OVHL.Modules:FindFirstChild(moduleName)
+        if srvPath and srvPath:FindFirstChild("ServerConfig") then
+            local succ, srvCfg = pcall(require, srvPath.ServerConfig)
+            if succ then self:MergeDeep(finalConfig, srvCfg) end
+        end
+    elseif context == "Client" then
+        local clPath = SPS.OVHL.Modules:FindFirstChild(moduleName)
+        if clPath and clPath:FindFirstChild("ClientConfig") then
+            local succ, clCfg = pcall(require, clPath.ClientConfig)
+            if succ then self:MergeDeep(finalConfig, clCfg) end
+        end
+    end
+    
+    return finalConfig
 end
 
 function ConfigLoader:GetClientSafeConfig(moduleName)
-	local serverConfig = self:ResolveConfig(moduleName, "Server")
-	local clientSafe = {}
-	local SENSITIVE_KEYS = {"Permissions", "API", "DebugMode", "APIKey", "Secret", "Token"}
-
-	for key, value in pairs(serverConfig) do
-		local isSensitive = false
-		for _, sensitiveKey in ipairs(SENSITIVE_KEYS) do
-			if string.lower(tostring(key)) == string.lower(tostring(sensitiveKey)) then
-				isSensitive = true
-				break
-			end
-		end
-		if not isSensitive then
-			clientSafe[key] = value
-		end
-	end
-	return clientSafe
+    return self:ResolveConfig(moduleName, "Client")
 end
 
 return ConfigLoader
