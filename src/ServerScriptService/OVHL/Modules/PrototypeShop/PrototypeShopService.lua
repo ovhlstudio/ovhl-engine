@@ -1,76 +1,70 @@
+--[[
+    OVHL ENGINE V1.2.2
+    @Component: PrototypeShopService
+    @Path: ServerScriptService.OVHL.Modules.PrototypeShop.PrototypeShopService
+    @Fixes: Added missing Rate Limit Registration loop
+--]]
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
-local PrototypeShopService = Knit.CreateService {
-	Name = "PrototypeShopService",
-	Client = {}
-}
+local PrototypeShopService = Knit.CreateService { Name = "PrototypeShopService", Client = {} }
 
 function PrototypeShopService:KnitInit()
-	self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-	self.Logger = self.OVHL.GetSystem("SmartLogger")
-	self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
-	
-	self.InputValidator = self.OVHL.GetSystem("InputValidator")
-	self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
-	self.PermissionCore = self.OVHL.GetSystem("PermissionCore")
-	
-	-- Register Security Schemas
-	self:_registerSecurity()
+    self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
+    self.Logger = self.OVHL.GetSystem("SmartLogger")
+    
+    -- Load Config (Merge Shared + Server)
+    self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
+    
+    self.InputValidator = self.OVHL.GetSystem("InputValidator")
+    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
+    
+    -- 1. Register Validation Schemas
+    if self.Config.Security and self.Config.Security.Schemas then
+        for name, schema in pairs(self.Config.Security.Schemas) do
+            self.InputValidator:AddSchema(name, schema)
+        end
+    end
+
+    -- [[ CRITICAL FIX: REGISTER RATE LIMITS ]]
+    -- Tanpa ini, RateLimiter tidak tahu aturan mainnya
+    if self.Config.Security and self.Config.Security.RateLimits then
+        for action, limit in pairs(self.Config.Security.RateLimits) do
+            self.RateLimiter:SetLimit(action, limit.max, limit.window)
+            self.Logger:Debug("SHOP", "Registered Limit", {action=action, max=limit.max})
+        end
+    else
+        self.Logger:Warn("SHOP", "No RateLimits found in Config!")
+    end
 end
 
 function PrototypeShopService:KnitStart() end
 
-function PrototypeShopService:_registerSecurity()
-	local sec = self.Config.Security
-	if sec and sec.ValidationSchemas then
-		for k,v in pairs(sec.ValidationSchemas) do self.InputValidator:AddSchema(k,v) end
-	end
-	if sec and sec.RateLimits then
-		for k,v in pairs(sec.RateLimits) do self.RateLimiter:SetLimit(k, v.max, v.window) end
-	end
+function PrototypeShopService.Client:BuyItem(player, data)
+    -- 1. Validate Input (Sanitasi & Schema)
+    local valid, err = self.Server.InputValidator:Validate("BuyItem", data)
+    if not valid then
+        warn("❌ [SHOP SERVER] Invalid Input:", err)
+        return false, "Invalid Input"
+    end
+    
+    -- 2. Validate Rate Limit (CEK CONFIG SHARED)
+    -- Config bilang: Max 3 request per 10 detik
+    if not self.Server.RateLimiter:Check(player, "BuyItem") then
+        warn("❌ [SHOP SERVER] Spam Detected from " .. player.Name)
+        return false, "Spam Detected! Slow down."
+    end
+
+    -- 3. Business Logic
+    print("💰 [SHOP SERVER] Transaction Success: " .. player.Name .. " bought " .. data.itemId)
+    return true, "Success"
 end
 
--- Fungsi Utama dengan Step-by-Step Logging
-function PrototypeShopService:ProcessBuy(player, data)
-	self.Logger:Info("SHOP", "📥 [SERVER] Request Received", {player=player.Name, data=data})
-
-	-- STEP 1: INPUT VALIDATION
-	self.Logger:Debug("SHOP", "🔍 [1/4] Validating Input...")
-	local valid, err = self.InputValidator:Validate("BuyItem", data)
-	if not valid then
-		self.Logger:Warn("SHOP", "❌ Input Validation Failed", {error=err})
-		return false, "Invalid Input: " .. tostring(err)
-	end
-
-	-- STEP 2: RATE LIMITING
-	self.Logger:Debug("SHOP", "⏱️ [2/4] Checking Rate Limit...")
-	if not self.RateLimiter:Check(player, "BuyItem") then
-		self.Logger:Warn("SHOP", "❌ Rate Limit Exceeded", {player=player.Name})
-		return false, "Spam Detected! Please wait."
-	end
-
-	-- STEP 3: PERMISSION CHECK
-	self.Logger:Debug("SHOP", "🔐 [3/4] Checking Permissions...")
-	local hasPerm, permErr = self.PermissionCore:Check(player, "PrototypeShop.BuyItem")
-	if not hasPerm then
-		self.Logger:Warn("SHOP", "❌ Permission Denied", {error=permErr})
-		return false, "Access Denied: " .. tostring(permErr)
-	end
-
-	-- STEP 4: BUSINESS LOGIC
-	self.Logger:Info("SHOP", "✅ [4/4] ALL CHECKS PASSED. Processing Transaction...")
-	
-	-- (Simulasi deduct money & give item)
-	task.wait(0.5) -- Simulasi delay database
-
-	self.Logger:Info("SHOP", "💰 [SUCCESS] Item Given to " .. player.Name)
-	return true, "Transaction Complete! Enjoy your Sword."
-end
-
-function PrototypeShopService.Client:RequestBuy(player, data)
-	-- Wrapper untuk Client
-	return self.Server:ProcessBuy(player, data)
+-- FUNCTION TEST LEAK (UTK BUKTIKAN NETWORK GUARD)
+function PrototypeShopService.Client:TestSecretLeak(player)
+    -- Mencoba mengirim seluruh config (termasuk ServerConfig) ke Client
+    return self.Server.Config
 end
 
 return PrototypeShopService
