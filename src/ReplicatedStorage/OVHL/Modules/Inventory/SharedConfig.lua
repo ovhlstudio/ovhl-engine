@@ -1,29 +1,35 @@
 return {
-    Identity = { Name = "Inventory", Version = "1.0" },
-    
-    -- Permissions
-    Permission = { Actions = { Open = 0, Equip = 0 } },
+    Meta = {
+        Name = "Inventory",
+        Type = "Feature",
+        Version = "2.0.0",
+        Author = "OVHL Principal"
+    },
 
-    -- Topbar
+    -- [FIXED] DIKEMBALIKAN AGAR TOPBAR PLUS DETECT
     Topbar = { 
         Enabled = true, 
         Text = "BAG", 
-        Icon = "rbxassetid://3926305904", -- Placeholder Backpack
+        Icon = "rbxassetid://3926305904", -- Backpack Icon
         Shortcut = Enum.KeyCode.I 
     },
 
-    -- UI
+    Behavior = { Debounce = 0.5, AutoFetch = true },
+    
     UI = {
-        NativeTarget = "InventoryNative",
-        Components = {}, -- Kita langsung pakai Fusion untuk demo ini
+        Type = "Fusion",
+        RootTag = "InventoryWindow", 
+        Theme = "Dark",
         Defaults = { Title = "MY BACKPACK" }
     },
 
-    -- Network
     Network = {
+        Route = "Inventory",
         Requests = {
-            GetItems = { Args={}, Action="Open" },
-            Equip = { Args={"string"}, Action="Equip", RateLimit={Max=2, Interval=1} }
+            GetItems = { Args = {}, RateLimit = {Max=10, Interval=5} },
+            Equip = { Args = {"string"}, RateLimit = {Max=2, Interval=1} }
         }
-    }
+    },
+    
+    Contract = { Provides = {"Toggle"}, Requires = {"DataManager"} }
 }

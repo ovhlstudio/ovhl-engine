@@ -5,50 +5,49 @@ local Ctrl = {}
 
 function Ctrl:Init(ctx)
     self.Ctx = ctx
+    self.Log = ctx.Logger
     self.Api = ctx.Network:Get("Inventory")
     self.Scope = Fusion.scoped(Fusion)
     
-    -- STATE MANAGEMENT
     self.State = {
-        Items = self.Scope:Value({}) -- Empty list initially
+        Items = self.Scope:Value({}) 
     }
 end
 
 function Ctrl:Start()
-    -- Init View with State
     local View = require(script.Parent.View)
+    local uiConfig = self._config.UI
     
-    self.View = View.New(self._config.UI, self.State, {
+    self.View = View.New(uiConfig, self.State, {
         OnClose = function() self:Toggle(false) end,
         OnEquip = function(id) self:ReqEquip(id) end
     })
     
-    -- Pre-fetch data (Silent load)
+    self.Ctx.UI:Register("Inventory", self.View)
     self:FetchItems()
 end
 
-function Ctrl:Toggle(v)
-    self.View.Toggle(v)
-    if self.Ctx.Topbar then self.Ctx.Topbar:SetState(self.Name, v) end
-    
-    -- Refresh data when opening
-    if v then self:FetchItems() end
+function Ctrl:Toggle(val)
+    self.Ctx.UI[val and "Open" or "Close"](self.Ctx.UI, "Inventory")
+    self.Ctx.Topbar:SetState(self.Name, val)
+    if val then self:FetchItems() end
 end
 
 function Ctrl:FetchItems()
     self.Api:GetItems():andThen(function(res)
-        if res.Success then
-            -- UPDATE STATE -> UI AUTOMATICALLY UPDATES
+        if res and res.Success then
+            -- [HOTFIX] USE :set() BECAUSE CALLABLE FAILED
             self.State.Items:set(res.Data)
-            self.Ctx.Logger:Info("Inventory Refreshed", {Count = #res.Data})
+            self.Log:Info("Refreshed items", {Count = #res.Data})
         end
     end)
 end
 
 function Ctrl:ReqEquip(id)
     self.Api:Equip(id):andThen(function(r)
-        print("🎒 EQUIP:", r.Msg)
-        -- Nanti di sini bisa panggil NotificationController:Show(...)
+        if r.Success then
+            self.Log:Info("Item Equipped", r.Msg)
+        end
     end)
 end
 
