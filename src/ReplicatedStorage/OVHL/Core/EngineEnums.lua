@@ -1,12 +1,13 @@
---[[ @Component: EngineEnums (HD Standard) ]]
+--[[ @Component: EngineEnums (HD Admin Standard) ]]
 local EngineEnums = {
+    -- 1:1 Mirror of HD Admin Ranks
     Permission = { 
-        NonAdmin  = 0,
-        VIP       = 1,
-        Mod       = 2, 
-        Admin     = 3, 
-        HeadAdmin = 4,
-        Owner     = 5
+        NonAdmin  = 0, -- Default
+        VIP       = 1, -- Donors
+        Mod       = 2, -- Moderators
+        Admin     = 3, -- Administrators
+        HeadAdmin = 4, -- Head Administrators (Missing before)
+        Owner     = 5  -- Game Creator
     },
     
     UIMode = { Native = "Native", Fusion = "Fusion", Hybrid = "Hybrid" },

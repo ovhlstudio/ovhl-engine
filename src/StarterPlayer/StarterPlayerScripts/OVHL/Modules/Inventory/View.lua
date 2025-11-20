@@ -1,15 +1,17 @@
---[[ @Component: InventoryView (Hotfix: Use set() syntax) ]]
+--[[ @Component: InventoryView (V9 - Consistent) ]]
 local RS = game:GetService("ReplicatedStorage")
 local Fusion = require(RS.Packages.Fusion)
 
-local UI = RS.OVHL.UI
-local Theme = require(UI.Foundation.Theme)
-local Window = require(UI.Components.Surfaces.Window)
-local Grid = require(UI.Components.Containers.Grid)
-local Card = require(UI.Components.Surfaces.Card)
-local Badge = require(UI.Components.Feedback.Badge)
-local Button = require(UI.Components.Inputs.Button)
-local Text = require(UI.Foundation.Typography)
+local OVHL = require(RS.OVHL.OVHL)
+local UI = OVHL.UI
+local Theme = OVHL.Theme
+
+local Window = UI.Window
+local Grid = UI.Grid
+local Card = UI.Card
+local Badge = UI.Badge
+local Button = UI.Button
+local Text = UI.Typography -- Using Typography component
 
 local scoped = Fusion.scoped
 local peek = Fusion.peek
@@ -19,7 +21,6 @@ local View = {}
 
 function View.New(cfgUI, state, cb)
     local scope = scoped(Fusion)
-    -- DEFINISI VALUE
     local gridVisuals = scope:Value({})
     
     local rarityColors = {
@@ -32,7 +33,6 @@ function View.New(cfgUI, state, cb)
         local items = peek(state.Items) or {}
         
         if #items == 0 then
-            -- [HOTFIX] Use :set({}) instead of ({})
             gridVisuals:set({
                 Text(scope, {
                     Variant="Title", Text="EMPTY BAG", Align="Center", 
@@ -75,7 +75,6 @@ function View.New(cfgUI, state, cb)
             }))
         end
         
-        -- [HOTFIX] Use :set()
         gridVisuals:set(visuals)
     end
 
@@ -91,7 +90,7 @@ function View.New(cfgUI, state, cb)
     })
 
     local screen = scope:New "ScreenGui" {
-        Name = "Inventory_View",
+        Name = "Inventory_View_V9",
         Parent = game.Players.LocalPlayer.PlayerGui,
         Enabled = false,
         ResetOnSpawn = false,

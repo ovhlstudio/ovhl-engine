@@ -1,36 +1,38 @@
---[[ @Component: SharedConfigLoader (V2 STRICT STANDARD) ]]
-local Loader = {}
+--[[ @Component: SharedConfigLoader (Validated) ]]
 local RS = game:GetService("ReplicatedStorage")
-
-local function DeepMerge(t, s)
-    for k,v in pairs(s) do
-        if type(v) == "table" and type(t[k]) == "table" then DeepMerge(t[k], v)
-        else t[k] = v end
-    end
-end
+local Loader = {}
+local Schema = require(script.Parent.ConfigSchema)
 
 function Loader.Load(moduleName)
     local modFolder = RS.OVHL.Modules:FindFirstChild(moduleName)
     if not modFolder then
-        warn("[OVHL CONFIG] Module not found:", moduleName)
+        warn("[CONFIG] Module not found: " .. moduleName)
         return {} 
     end
 
     local configFile = modFolder:FindFirstChild("SharedConfig")
     if not configFile then
-        warn("[OVHL CONFIG] SharedConfig missing for:", moduleName)
+        warn("[CONFIG] SharedConfig missing for: " .. moduleName)
         return {}
     end
 
-    local cfg = require(configFile)
+    local success, cfg = pcall(require, configFile)
+    if not success then
+        warn("[CONFIG] Syntax Error in " .. moduleName .. ": " .. tostring(cfg))
+        return {}
+    end
 
-    -- STRICT VALIDATION (V2 Section 5)
-    if not cfg.Meta then
-        warn("CRITICAL VIOLATION: " .. moduleName .. " config missing Meta!")
+    -- STRICT VALIDATION
+    local ok, err = pcall(Schema.Validate, cfg, moduleName)
+    if not ok then
+        warn(err) -- Warn only, don't crash thread, simply return safe default?
+        -- Or crash? Claude said "FAIL FAST". Let's error.
+        error(err)
     end
     
+    -- Defaults
     if not cfg.Network then
-        cfg.Network = { Route = moduleName.."/Main", Requests = {} }
+        cfg.Network = { Route = moduleName, Requests = {} }
     end
 
     return cfg
