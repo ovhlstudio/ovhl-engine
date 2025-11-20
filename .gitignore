@@ -6,6 +6,7 @@
 /lokal/
 /scripts/
 /src copy/
+/src_copy/
 # Rojo build artifacts
 /roblox/
 *.rbxl
