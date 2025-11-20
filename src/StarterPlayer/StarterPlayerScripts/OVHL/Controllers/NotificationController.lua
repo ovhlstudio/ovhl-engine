@@ -1,10 +1,11 @@
---[[ @Component: NotificationController (Client) ]]
-local SG = game:GetService("StarterGui")
+--[[ @Component: NotificationController (Toast Linked) ]]
 local RS = game:GetService("ReplicatedStorage")
-
 local Ctrl = {}
+
 function Ctrl:Init(ctx)
     self.Log = ctx.Logger
+    self.UI = ctx.UI
+    
     local root = RS:WaitForChild("OVHL_Remotes")
     local remote = root:WaitForChild("NotificationSystem/Push", 5)
     
@@ -18,14 +19,9 @@ end
 function Ctrl:Start() end
 
 function Ctrl:Show(msg, kind)
-    -- Enterprise Default: Gunakan RBX Notification jika UI System belum bikin Custom Toast
-    self.Log:Info("NOTIF", msg, {Type=kind})
-    pcall(function()
-        SG:SetCore("SendNotification", {
-            Title = kind or "System",
-            Text = msg,
-            Duration = 5
-        })
-    end)
+    -- Redirect ke UIService Toast Engine (Bukan StarterGui lagi)
+    -- Kind: "Success", "Error", "Info"
+    self.UI:ShowToast(msg, kind) 
 end
+
 return Ctrl

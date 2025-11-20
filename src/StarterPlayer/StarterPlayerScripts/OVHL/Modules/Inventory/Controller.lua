@@ -1,16 +1,19 @@
+
 local RS = game:GetService("ReplicatedStorage")
-local Fusion = require(RS.Packages.Fusion)
+local Fusion = require(RS.OVHL.UI.Core.Fusion)
 
 local Ctrl = {}
 
 function Ctrl:Init(ctx)
     self.Ctx = ctx
-    self.Log = ctx.Logger
     self.Api = ctx.Network:Get("Inventory")
+    self.Logger = ctx.Logger
     self.Scope = Fusion.scoped(Fusion)
     
+    -- State Definition (Reactive)
     self.State = {
-        Items = self.Scope:Value({}) 
+        Items = self.Scope:Value({}), 
+        SelectedId = self.Scope:Value(nil)
     }
 end
 
@@ -36,9 +39,8 @@ end
 function Ctrl:FetchItems()
     self.Api:GetItems():andThen(function(res)
         if res and res.Success then
-            -- Clean state update
             self.State.Items:set(res.Data)
-            self.Log:Info("Refreshed items", {Count = #res.Data})
+            self.Logger:Info("Inventory Updated", {Count = #res.Data})
         end
     end)
 end
@@ -46,9 +48,11 @@ end
 function Ctrl:ReqEquip(id)
     self.Api:Equip(id):andThen(function(r)
         if r.Success then
-            self.Log:Info("Item Equipped", r.Msg)
+            self.State.SelectedId:set(id) -- Optimistic update
+            self.Ctx.UI:ShowToast("Equipped Successfully", "Success")
         end
     end)
 end
 
 return Ctrl
+

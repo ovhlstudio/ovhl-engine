@@ -1,69 +1,86 @@
---[[ @Component: AdminController (Safety Patched) ]]
 local RS = game:GetService("ReplicatedStorage")
+local UI = require(RS.OVHL.UI.API)
+local Fusion = UI.Fusion
+local scoped = Fusion.scoped
+local Players = game:GetService("Players")
+
 local Ctrl = {}
 
 function Ctrl:Init(ctx)
     self.Ctx = ctx
     self.Api = ctx.Network:Get("PermissionSystem")
-    self.Logger = ctx.LoggerFactory.Admin()
-    self.State = { SearchQuery="", SearchResults={}, SelectedPlayer=nil, SelectedRank=0 }
+    self.Scope = scoped(Fusion)
+    self.State = {
+        SearchQuery = self.Scope:Value(""),
+        SearchResults = self.Scope:Value({}),
+        SelectedPlayer = self.Scope:Value(nil),
+    }
+    self.LocalCache = {}
 end
 
 function Ctrl:Start()
-    local success, View = pcall(require, script.Parent.Parent.Parent.UI.AdminPanel.AdminView)
-    if not success then
-        self.Logger:Error("View Load Failed", View)
-        return
-    end
-    
-    self.View = View.New({
+    local View = require(script.Parent.Parent.Parent.UI.AdminPanel.AdminView)
+    self.View = View.New(self.State, {
         OnSearch = function(q) self:DoSearch(q) end,
-        OnSelect = function(p) self.State.SelectedPlayer = p; self:RefreshUI() end,
-        OnRank   = function(r) self.State.SelectedRank = r; self:RefreshUI() end,
-        OnConfirm = function() self:Submit() end,
-        OnClose  = function() self:Toggle(false) end
+        OnSelect = function(p) self.State.SelectedPlayer:set(p) end,
+        OnRankSet = function(id) self:SubmitRank(id) end,
+        OnClose = function() self:Toggle(false) end
     })
     self.Ctx.UI:Register("AdminPanel", self.View)
+    
+    -- [FIX] FORCE CLOSE DELAYED
+    task.spawn(function()
+        task.wait(0.1) -- Tunggu UI mounting selesai
+        self:Toggle(false)
+    end)
+    
+    self:RefreshList()
 end
 
-function Ctrl:Toggle(val)
-    self.Ctx.UI[val and "Open" or "Close"](self.Ctx.UI, "AdminPanel")
-    self.Ctx.Topbar:SetState("Admin", val)
-    
-    if val then
-        self.State.SearchQuery = ""
-        self.State.SelectedPlayer = nil
-        self:DoSearch("") -- Auto Fetch
+function Ctrl:Toggle(v)
+    self.Ctx.UI[v and "Open" or "Close"](self.Ctx.UI, "AdminPanel")
+    self.Ctx.Topbar:SetState("Admin", v)
+    if v then self:RefreshList() end
+end
+
+function Ctrl:RefreshList()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        table.insert(list, { Name=p.Name, UserId=p.UserId, CurrentRank=0 })
     end
+    self.LocalCache = list
+    self:DoSearch(Fusion.peek(self.State.SearchQuery))
 end
 
 function Ctrl:DoSearch(q)
-    self.State.SearchQuery = q
-    self.Api:SearchPlayers(q):andThen(function(res)
-        if res.Success then
-            self.State.SearchResults = res.Data
-            self:RefreshUI()
+    self.State.SearchQuery:set(q)
+    local query = string.lower(q or "")
+    local filtered = {}
+    for _, p in ipairs(self.LocalCache) do
+        if query == "" or string.find(string.lower(p.Name), query) then
+            table.insert(filtered, p)
         end
-    end):catch(function(e)
-        self.Logger:Warn("Search Error", e)
+    end
+    self.State.SearchResults:set(filtered)
+end
+
+function Ctrl:SubmitRank(rankId)
+    local p = Fusion.peek(self.State.SelectedPlayer)
+    if not p then return end
+    
+    self.Api:SetRank(p.UserId, rankId):andThen(function(r)
+        if r.Success then 
+            self.Ctx.UI:ShowToast("Rank Updated", "Success")
+            p.CurrentRank = rankId
+            -- Update Cache
+            for i, v in ipairs(self.LocalCache) do
+                if v.UserId == p.UserId then v.CurrentRank = rankId; break end
+            end
+            -- Refresh UI
+            self.State.SelectedPlayer:set(p) 
+            self.State.SearchResults:set(self.LocalCache)
+        end
     end)
 end
 
-function Ctrl:RefreshUI()
-    if self.View then self.View.Update(self.State) end
-end
-
-function Ctrl:Submit()
-    if not self.State.SelectedPlayer then return end
-    self.Logger:Info("Updating Rank...")
-    
-    self.Api:SetRank(self.State.SelectedPlayer.UserId, self.State.SelectedRank or 0)
-        :andThen(function(r)
-            if r.Success then 
-                self:DoSearch(self.State.SearchQuery) 
-                self.State.SelectedPlayer = nil 
-                self:RefreshUI()
-            end
-        end)
-end
 return Ctrl

@@ -1,107 +1,99 @@
---[[ @Component: InventoryView (V9 - Consistent) ]]
 local RS = game:GetService("ReplicatedStorage")
-local Fusion = require(RS.Packages.Fusion)
-
-local OVHL = require(RS.OVHL.OVHL)
-local UI = OVHL.UI
-local Theme = OVHL.Theme
-
-local Window = UI.Window
-local Grid = UI.Grid
-local Card = UI.Card
-local Badge = UI.Badge
-local Button = UI.Button
-local Text = UI.Typography -- Using Typography component
-
-local scoped = Fusion.scoped
-local peek = Fusion.peek
-local Children = Fusion.Children
+local UI = require(RS.OVHL.UI.API)
+local Fusion = UI.Fusion
+local Theme = UI.Theme
 
 local View = {}
+View.__index = View
 
-function View.New(cfgUI, state, cb)
-    local scope = scoped(Fusion)
-    local gridVisuals = scope:Value({})
+function View.New(cfg, state, cb)
+    local self = setmetatable({}, View)
+    self.Scope = Fusion.scoped(Fusion)
+    self.IsVisible = self.Scope:Value(false)
     
-    local rarityColors = {
-        Common=Theme.Colors.Secondary, Uncommon=Theme.Colors.Success,
-        Rare=Theme.Colors.Primary, Legendary=Theme.Colors.Warning,
-        Consumable=Theme.Colors.Danger, Epic=Color3.fromHex("A020F0")
-    }
+    -- Modal State
+    local showModal = self.Scope:Value(false)
+    local modalData = self.Scope:Value({Title="", Desc=""})
 
-    local function renderItems()
-        local items = peek(state.Items) or {}
-        
-        if #items == 0 then
-            gridVisuals:set({
-                Text(scope, {
-                    Variant="Title", Text="EMPTY BAG", Align="Center", 
-                    Color=Theme.Colors.TextDim, Size=UDim2.new(1,0,0,100)
-                })
-            })
-            return
+    -- RENDER MODAL
+    UI.Modal(self.Scope, {
+        Visible = showModal,
+        Title = self.Scope:Computed(function(use) return use(modalData).Title end),
+        Description = self.Scope:Computed(function(use) return use(modalData).Desc end),
+        OnCancel = function() showModal:set(false) end,
+        OnConfirm = function() 
+            local d = Fusion.peek(modalData)
+            if d.Action then d.Action() end
+            showModal:set(false) 
         end
-        
-        local visuals = {}
-        for _, item in ipairs(items) do
-            local itemColor = rarityColors[item.Rarity] or Theme.Colors.Secondary
-            
-            table.insert(visuals, Card(scope, {
-                Size = UDim2.fromOffset(140, 160),
-                Content = scope:New "Frame" {
-                    BackgroundTransparency = 1, Size = UDim2.fromScale(1,1),
-                    [Children] = {
-                        scope:New "UIPadding" { PaddingTop=UDim.new(0,8), PaddingLeft=UDim.new(0,8) },
-                        Text(scope, {Text=item.Name, Size=UDim2.new(1,0,0,30)}),
-                        
-                        scope:New "Frame" { 
-                            Position=UDim2.fromScale(0, 0.25), Size=UDim2.new(1,0,0,24), BackgroundTransparency=1,
-                            [Children] = { 
-                                Badge(scope, {Text=item.Rarity, Size=UDim2.fromOffset(80, 18), Color=itemColor}) 
-                            }
-                        },
-                        
-                        scope:New "Frame" {
-                            AnchorPoint=Vector2.new(0,1), Position=UDim2.fromScale(0,1), Size=UDim2.new(1,0,0,30), BackgroundTransparency=1,
-                            [Children] = { 
-                                Button(scope, {
-                                    Text="EQUIP", Color=Theme.Colors.Surface, 
-                                    OnClick=function() cb.OnEquip(item.Id) end
-                                }) 
-                            }
-                        }
-                    }
-                }
-            }))
-        end
-        
-        gridVisuals:set(visuals)
-    end
-
-    local obs = scope:Observer(state.Items)
-    obs:onChange(renderItems)
-    renderItems() 
-
-    local winInstance = Window(scope, {
-        Title = cfgUI.Defaults.Title,
-        Size = UDim2.fromOffset(520, 420), 
-        OnClose = cb.OnClose,
-        Content = Grid(scope, { CellSize=UDim2.fromOffset(140,160), Content=gridVisuals })
     })
 
-    local screen = scope:New "ScreenGui" {
-        Name = "Inventory_View_V9",
-        Parent = game.Players.LocalPlayer.PlayerGui,
-        Enabled = false,
-        ResetOnSpawn = false,
-        DisplayOrder = 50,
-        [Children] = { winInstance }
-    }
-
-    return {
-        Instance = screen,
-        Toggle = function(v) screen.Enabled = v end,
-        Destroy = function() scope:doCleanup() end
-    }
+    UI.Window(self.Scope, {
+        Title = "MY INVENTORY", 
+        Visible = self.IsVisible, 
+        Size = UDim2.fromOffset(800, 600),
+        OnClose = cb.OnClose,
+        [Fusion.Children] = {
+            self.Scope:New "ScrollingFrame" {
+                Size=UDim2.fromScale(1,1), BackgroundTransparency=1, CanvasSize=UDim2.new(), AutomaticCanvasSize="Y",
+                ScrollBarThickness=6, ScrollBarImageColor3=Theme.Colors.Input,
+                [Fusion.Children] = {
+                    self.Scope:New "UIPadding" { PaddingTop=UDim.new(0,20), PaddingLeft=UDim.new(0,20), PaddingRight=UDim.new(0,20), PaddingBottom=UDim.new(0,20) },
+                    
+                    self.Scope:New "UIGridLayout" { 
+                        CellSize=UDim2.fromOffset(160, 200), 
+                        CellPadding=UDim2.fromOffset(15,15), 
+                        HorizontalAlignment="Center" 
+                    },
+                    
+                    self.Scope:ForValues(state.Items, function(use, scope, item)
+                        return UI.Card(scope, {
+                            Color = Theme.Colors.Panel,
+                            HasStroke = true,
+                            [Fusion.Children] = {
+                                self.Scope:New "UIPadding" { PaddingTop=UDim.new(0,15), PaddingBottom=UDim.new(0,15), PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,10) },
+                                self.Scope:New "UIListLayout" { HorizontalAlignment="Center", Padding=UDim.new(0,10) },
+                                
+                                -- Icon
+                                scope:New "Frame" {
+                                    Size=UDim2.fromOffset(80,80), BackgroundColor3=Theme.Colors.Background,
+                                    [Fusion.Children] = {
+                                        scope:New "UICorner" { CornerRadius=UDim.new(1,0) }, -- Circle Icon
+                                        scope:New "UIStroke" { Color=Theme.Colors.Border, Thickness=1 }
+                                    }
+                                },
+                                
+                                -- Text
+                                scope:New "Frame" { Size=UDim2.new(1,0,1,-125), BackgroundTransparency=1,
+                                    [Fusion.Children] = {
+                                        scope:New "TextLabel" { 
+                                            Text=string.upper(item.Name), TextColor3=Theme.Colors.TextMain, Font=Theme.Fonts.Body, TextSize=14, 
+                                            Size=UDim2.fromScale(1,1), BackgroundTransparency=1, TextWrapped=true, TextYAlignment="Center" 
+                                        }
+                                    }
+                                },
+                                
+                                -- Equip Button (Triggers Modal)
+                                UI.Button(scope, { 
+                                    Text="EQUIP", Variant="Primary", Size=UDim2.new(1,0,0,35), 
+                                    OnClick=function() 
+                                        modalData:set({
+                                            Title = "EQUIP ITEM",
+                                            Desc = "Do you want to equip "..item.Name.."?",
+                                            Action = function() cb.OnEquip(item.Id) end
+                                        })
+                                        showModal:set(true)
+                                    end 
+                                })
+                            }
+                        })
+                    end)
+                }
+            }
+        }
+    })
+    return self
 end
+function View:Toggle(v) self.IsVisible:set(v) end
+function View:Destroy() self.Scope:doCleanup() end
 return View
