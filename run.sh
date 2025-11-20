@@ -1,81 +1,240 @@
 #!/bin/bash
-set -e
-FILE="src/ServerScriptService/OVHL/Modules/PrototypeShop/PrototypeShopService.lua"
 
-echo -e "\033[0;31m🚑 [FIX] RESTORING MISSING RATE LIMIT LOGIC IN SHOP SERVICE...\033[0m"
+echo "🎯 FINAL FIX - COMPLETE DOMAIN MAPPING"
+echo "======================================"
 
-cat << 'EOF' > "$FILE"
---[[
-    OVHL ENGINE V1.2.2
-    @Component: PrototypeShopService
-    @Path: ServerScriptService.OVHL.Modules.PrototypeShop.PrototypeShopService
-    @Fixes: Added missing Rate Limit Registration loop
---]]
+# --------------------------------------------------
+# 1. FIX CLIENT KERNEL DOMAIN MAPPING
+# --------------------------------------------------
+echo "⚡ Fixing Client Kernel Domain Mapping..."
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Knit = require(ReplicatedStorage.Packages.Knit)
+cat > "src/StarterPlayer/StarterPlayerScripts/OVHL/Core/Kernel.lua" << 'EOF'
+--[[ @Component: Kernel (Client - Complete Domain Mapping) ]]
+local RS = game:GetService("ReplicatedStorage")
+local PS = game:GetService("Players").LocalPlayer:WaitForChild("PlayerScripts")
 
-local PrototypeShopService = Knit.CreateService { Name = "PrototypeShopService", Client = {} }
+local Logger = require(RS.OVHL.Core.SmartLogger)
+local Config = require(RS.OVHL.Core.SharedConfigLoader)
+local Bridge = require(PS.OVHL.Core.NetworkBridge)
 
-function PrototypeShopService:KnitInit()
-    self.OVHL = require(ReplicatedStorage.OVHL.Core.OVHL)
-    self.Logger = self.OVHL.GetSystem("SmartLogger")
+-- V2 SERVICES
+local FinderService = require(PS.OVHL.Core.FinderService)
+local UIService     = require(PS.OVHL.Core.UIService)
+local Topbar        = require(PS.OVHL.Controllers.TopbarPlusAdapter)
+
+local Kernel = {}
+
+function Kernel.Boot()
+    local log = Logger.New("SYSTEM")
+    log:Info("🚀 CLIENT STARTUP (Complete Domain Mapping)")
     
-    -- Load Config (Merge Shared + Server)
-    self.Config = self.OVHL.GetConfig("PrototypeShop", nil, "Server")
+    -- Enhanced Topbar dengan domain yang proper
+    local topbarInstance = Topbar.New()
     
-    self.InputValidator = self.OVHL.GetSystem("InputValidator")
-    self.RateLimiter = self.OVHL.GetSystem("RateLimiter")
+    -- CONTEXT INJECTION
+    local ctx = {
+        Logger = log,
+        Network = Bridge.New(),
+        Finder = FinderService,
+        UI = UIService,
+        Topbar = topbarInstance
+    }
     
-    -- 1. Register Validation Schemas
-    if self.Config.Security and self.Config.Security.Schemas then
-        for name, schema in pairs(self.Config.Security.Schemas) do
-            self.InputValidator:AddSchema(name, schema)
+    topbarInstance:Init({ Logger = Logger.New("TOPBAR") })
+    
+    local modules = {}
+    
+    local function Scan(dir)
+        if not dir then return end
+        for _, f in ipairs(dir:GetChildren()) do
+            if f:IsA("Folder") then
+                local script = f:FindFirstChild("Controller")
+                if script then
+                    local mod = require(script)
+                    mod.Name = f.Name
+                    mod._config = Config.Load(f.Name)
+                    
+                    -- COMPLETE DOMAIN MAPPING
+                    if f.Name == "Admin" then
+                        mod.Logger = Logger.New("ADMIN")
+                    elseif f.Name == "Inventory" then
+                        mod.Logger = Logger.New("INVENTORY")
+                    elseif f.Name == "PrototypeShop" then
+                        mod.Logger = Logger.New("SHOP")
+                    else
+                        mod.Logger = Logger.New("SYSTEM")
+                    end
+                    
+                    modules[f.Name] = mod
+                    mod.Logger:Debug("Controller initialized", {Name = f.Name})
+                end
+            end
         end
     end
+    
+    Scan(PS.OVHL.Modules)
+    Scan(PS.OVHL.Controllers)
 
-    -- [[ CRITICAL FIX: REGISTER RATE LIMITS ]]
-    -- Tanpa ini, RateLimiter tidak tahu aturan mainnya
-    if self.Config.Security and self.Config.Security.RateLimits then
-        for action, limit in pairs(self.Config.Security.RateLimits) do
-            self.RateLimiter:SetLimit(action, limit.max, limit.window)
-            self.Logger:Debug("SHOP", "Registered Limit", {action=action, max=limit.max})
-        end
-    else
-        self.Logger:Warn("SHOP", "No RateLimits found in Config!")
-    end
-end
-
-function PrototypeShopService:KnitStart() end
-
-function PrototypeShopService.Client:BuyItem(player, data)
-    -- 1. Validate Input (Sanitasi & Schema)
-    local valid, err = self.Server.InputValidator:Validate("BuyItem", data)
-    if not valid then
-        warn("❌ [SHOP SERVER] Invalid Input:", err)
-        return false, "Invalid Input"
+    log:Info("Phase 1: Init Modules")
+    for _, m in pairs(modules) do
+        if m.Init then pcall(function() m:Init(ctx) end) end
     end
     
-    -- 2. Validate Rate Limit (CEK CONFIG SHARED)
-    -- Config bilang: Max 3 request per 10 detik
-    if not self.Server.RateLimiter:Check(player, "BuyItem") then
-        warn("❌ [SHOP SERVER] Spam Detected from " .. player.Name)
-        return false, "Spam Detected! Slow down."
+    log:Info("Phase 2: Start Modules")
+    for name, m in pairs(modules) do
+        task.spawn(function()
+            if m._config and m._config.Topbar and m._config.Topbar.Enabled then
+                local t_cfg = m._config.Topbar
+                ctx.Topbar:Add(name, t_cfg, function(state) 
+                    if m.Toggle then m:Toggle(state) end 
+                end)
+            end
+            if m.Start then m:Start() end
+        end)
     end
-
-    -- 3. Business Logic
-    print("💰 [SHOP SERVER] Transaction Success: " .. player.Name .. " bought " .. data.itemId)
-    return true, "Success"
+    
+    log:Info("✅ CLIENT READY (Services Active)")
 end
 
--- FUNCTION TEST LEAK (UTK BUKTIKAN NETWORK GUARD)
-function PrototypeShopService.Client:TestSecretLeak(player)
-    -- Mencoba mengirim seluruh config (termasuk ServerConfig) ke Client
-    return self.Server.Config
-end
-
-return PrototypeShopService
+return Kernel
 EOF
 
-echo -e "\033[0;32m✅ Service Patched. Rate Limiting is now ACTIVE.\033[0m"
-echo "➡️  Sync Rojo & Test Spam Click."
+# --------------------------------------------------
+# 2. FIX UI COMPONENTS DOMAIN
+# --------------------------------------------------
+echo "🎨 Fixing UI Components Domain..."
+
+# Update Button component
+sed -i '5s/Logger.New("UX")/Logger.New("UI")/' "src/ReplicatedStorage/OVHL/UI/Components/Inputs/Button.lua"
+
+# Update other UI components jika ada
+find "src/ReplicatedStorage/OVHL/UI" -name "*.lua" -exec sed -i 's/Logger.New("UX")/Logger.New("UI")/g' {} \;
+
+# --------------------------------------------------
+# 3. FIX MODULE VIEWS DOMAIN
+# --------------------------------------------------
+echo "📱 Fixing Module Views Domain..."
+
+# Update Inventory View
+if [ -f "src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/Inventory/View.lua" ]; then
+    sed -i 's/self.Log = ctx.Logger/self.Log = require(game:GetService("ReplicatedStorage").OVHL.Core.SmartLogger).New("INVENTORY")/' "src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/Inventory/View.lua"
+fi
+
+# Update Shop View  
+if [ -f "src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/PrototypeShop/View.lua" ]; then
+    sed -i 's/self.Ctx.Logger/require(game:GetService("ReplicatedStorage").OVHL.Core.SmartLogger).New("SHOP")/' "src/StarterPlayer/StarterPlayerScripts/OVHL/Modules/PrototypeShop/View.lua"
+fi
+
+# --------------------------------------------------
+# 4. UPDATE DOMAIN RESOLVER FOR BETTER MAPPING
+# --------------------------------------------------
+echo "🧠 Enhancing Domain Resolver..."
+
+cat > "src/ReplicatedStorage/OVHL/Core/Logging/DomainResolver.lua" << 'EOF'
+--[[ @Component: DomainResolver (Enhanced Mapping) ]]
+local DomainResolver = {}
+
+local DOMAIN_MAPPINGS = {
+    -- Server Services
+    ["PermissionService"] = "PERMISSION",
+    ["DataManager"] = "DATA",
+    ["NotificationService"] = "NOTIFICATION",
+    ["HDAdminAdapter"] = "HDADMIN",
+    ["InternalPolicy"] = "POLICY",
+    
+    -- Server Modules
+    ["InventoryService"] = "INVENTORY",
+    ["PrototypeShopService"] = "SHOP",
+    
+    -- Server Core
+    ["NetworkBridge"] = "NETWORK",
+    ["NetworkGuard"] = "NETWORK",
+    ["RateLimiter"] = "SYSTEM",
+    ["Kernel"] = "SYSTEM",
+    
+    -- Client Controllers
+    ["TopbarPlusAdapter"] = "TOPBAR",
+    ["NotificationController"] = "NOTIFICATION",
+    ["AdminController"] = "ADMIN",
+    
+    -- Client Modules
+    ["InventoryController"] = "INVENTORY",
+    ["InventoryView"] = "INVENTORY",
+    ["PrototypeShopController"] = "SHOP",
+    ["PrototypeShopView"] = "SHOP",
+    
+    -- Client Core
+    ["UIService"] = "UI",
+    ["FinderService"] = "FINDER",
+    ["AssetLoader"] = "ASSET",
+    
+    -- Shared Core
+    ["SmartLogger"] = "LOGGER",
+    ["AssetSystem"] = "ASSET",
+    ["EngineEnums"] = "ENUM",
+    ["PermissionCore"] = "PERMISSION",
+    ["SharedConfigLoader"] = "CONFIG",
+    ["CoreTypes"] = "TYPE",
+    
+    -- Shared Configs
+    ["AdminSharedConfig"] = "ADMIN",
+    ["InventorySharedConfig"] = "INVENTORY",
+    ["ShopSharedConfig"] = "SHOP",
+    
+    -- UI Components
+    ["Button"] = "UI",
+    ["TextField"] = "UI",
+    ["Window"] = "UI",
+    ["Theme"] = "UI"
+}
+
+function DomainResolver.Resolve(moduleName)
+    if DOMAIN_MAPPINGS[moduleName] then
+        return DOMAIN_MAPPINGS[moduleName]
+    end
+    
+    local domain = moduleName
+    domain = domain:gsub("Controller$", "")
+    domain = domain:gsub("Service$", "")
+    domain = domain:gsub("Adapter$", "")
+    domain = domain:gsub("View$", "")
+    domain = domain:gsub("Manager$", "")
+    domain = domain:gsub("System$", "")
+    domain = domain:gsub("Panel$", "")
+    domain = domain:upper()
+    
+    if domain:find("ADMIN") then return "ADMIN" end
+    if domain:find("INVENTORY") then return "INVENTORY" end
+    if domain:find("SHOP") then return "SHOP" end
+    if domain:find("NETWORK") then return "NETWORK" end
+    if domain:find("PERMISSION") then return "PERMISSION" end
+    if domain:find("NOTIFICATION") then return "NOTIFICATION" end
+    if domain:find("UI") or domain:find("THEME") or domain:find("BUTTON") then return "UI" end
+    if domain:find("DATA") then return "DATA" end
+    if domain:find("CONFIG") then return "CONFIG" end
+    
+    return "SYSTEM"
+end
+
+function DomainResolver.GetMappings()
+    return DOMAIN_MAPPINGS
+end
+
+return DomainResolver
+EOF
+
+echo ""
+echo "🎉 FINAL DOMAIN FIX COMPLETED!"
+echo ""
+echo "📊 EXPECTED DOMAIN MAPPING:"
+echo "   • Admin Panel → 👑 ADMIN"
+echo "   • Inventory → 🎒 INVENTORY" 
+echo "   • Shop → 🏪 SHOP"
+echo "   • UI Components → 🎨 UI"
+echo "   • Topbar → 🔘 TOPBAR"
+echo ""
+echo "🚀 RESTART UNTUK VERIFY DOMAIN MAPPING!"
+EOF
+
+
+echo "🎯 FINAL DOMAIN FIX DEPLOYED - SYSTEM HARUSNYA SEMPURNA SEKARANG!"
