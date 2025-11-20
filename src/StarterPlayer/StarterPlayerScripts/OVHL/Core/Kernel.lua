@@ -1,24 +1,31 @@
---[[ @Component: Kernel (Client - Self Aware) ]]
+--[[ @Component: Kernel (Client - V2 Service Injection) ]]
 local RS = game:GetService("ReplicatedStorage")
 local PS = game:GetService("Players").LocalPlayer:WaitForChild("PlayerScripts")
-local Players = game:GetService("Players")
 
 local Logger = require(RS.OVHL.Core.SmartLogger)
 local Config = require(RS.OVHL.Core.SharedConfigLoader)
 local Bridge = require(PS.OVHL.Core.NetworkBridge)
-local UIEngine = require(PS.OVHL.Core.UIEngine)
-local Topbar = require(PS.OVHL.Controllers.TopbarPlusAdapter)
+
+-- V2 SERVICES
+local FinderService = require(PS.OVHL.Core.FinderService)
+local UIService     = require(PS.OVHL.Core.UIService)
+local Topbar        = require(PS.OVHL.Controllers.TopbarPlusAdapter)
 
 local Kernel = {}
 
 function Kernel.Boot()
     local log = Logger.New("KERNEL")
-    log:Info("🚀 CLIENT STARTUP (Phase 37 Sync)")
+    log:Info("🚀 CLIENT STARTUP (Phase 2 Services Injected)")
     
+    -- CONTEXT INJECTION
     local ctx = {
         Logger = log,
         Network = Bridge.New(),
-        UI = UIEngine,
+        
+        -- REPLACED "UI" (UIEngine) -> With 2 Explicit Services
+        Finder = FinderService,
+        UI = UIService,        -- Note: "ctx.UI" sekarang adalah Service Manager, bukan Engine Scan lagi.
+        
         Topbar = Topbar.New()
     }
     
@@ -33,13 +40,14 @@ function Kernel.Boot()
                 local script = f:FindFirstChild("Controller")
                 if script then
                     local mod = require(script)
-                    -- [NEW] INJECT IDENTITY
                     mod.Name = f.Name
                     
+                    -- AUTO LOAD CONFIG STANDARD V2
                     mod._config = Config.Load(f.Name)
-                    mod.Logger = Logger.New(string.upper(f.Name), mod._config and mod._config.Logging)
+                    mod.Logger = Logger.New(string.upper(f.Name), mod._config.Meta and "INFO")
+                    
                     modules[f.Name] = mod
-                    log:Debug("Indexed", {Name = f.Name})
+                    log:Debug("Indexed Controller", {Name = f.Name})
                 end
             end
         end
@@ -48,24 +56,26 @@ function Kernel.Boot()
     Scan(PS.OVHL.Modules)
     Scan(PS.OVHL.Controllers)
 
-    log:Info("Phase 1: Init")
+    log:Info("Phase 1: Init Modules")
     for _, m in pairs(modules) do
         if m.Init then pcall(function() m:Init(ctx) end) end
     end
     
-    log:Info("Phase 2: Start")
+    log:Info("Phase 2: Start Modules")
     for name, m in pairs(modules) do
         task.spawn(function()
-            if m._config and m._config.Topbar then
-                -- Adapter sekarang simpan referensi pakai 'name' ini
-                ctx.Topbar:Add(name, m._config.Topbar, function(s) 
-                    if m.Toggle then m:Toggle(s) end 
+            if m._config and m._config.Topbar and m._config.Topbar.Enabled then
+                -- Topbar V2 Integration
+                local t_cfg = m._config.Topbar
+                ctx.Topbar:Add(name, t_cfg, function(state) 
+                     -- Universal Toggle Handling
+                    if m.Toggle then m:Toggle(state) end 
                 end)
             end
             if m.Start then m:Start() end
         end)
     end
     
-    log:Info("✅ CLIENT READY")
+    log:Info("✅ CLIENT READY (Services Active)")
 end
 return Kernel

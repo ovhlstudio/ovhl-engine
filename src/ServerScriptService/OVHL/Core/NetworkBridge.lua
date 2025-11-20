@@ -1,7 +1,6 @@
---[[ @Component: NetworkBridge (Server - Hardened) ]]
+--[[ @Component: NetworkBridge (Server - V2 Standardized) ]]
 local RS = game:GetService("ReplicatedStorage")
--- ABSOLUTE REQUIRES
-local Guard = require(game:GetService("ServerScriptService").OVHL.Core.NetworkGuard)
+local Guard = require(script.Parent.NetworkGuard)
 local Bridge = {}
 Bridge.__index = Bridge
 
@@ -13,59 +12,80 @@ function Bridge.New(ctx)
     return self
 end
 
--- STRICT TYPE CHECKER
 local function CheckTypes(args, schemas)
     if not schemas then return true end
     for i, schemaType in ipairs(schemas) do
         local val = args[i]
-        if type(val) ~= schemaType then return false, "Arg #"..i.." expected "..schemaType..", got "..type(val) end
+        local t = type(val)
+        
+        -- Robust check including "any" or "player" if needed
+        if schemaType ~= "any" and t ~= schemaType then
+             return false, "Arg #"..i.." expected "..schemaType..", got "..t 
+        end
     end
     return true
 end
 
-function Bridge:Register(name, config)
-    self._logger:Debug("NET", "Bridging Service (Strict)", {Name=name})
-    local rules = config and config.Requests or {}
+function Bridge:Register(serviceName, netConfig)
+    -- netConfig refer to config.Network
+    local reqs = netConfig and netConfig.Requests or {}
+    local routePrefix = netConfig.Route or serviceName
     
-    for method, rule in pairs(rules) do
+    for methodName, rules in pairs(reqs) do
+        -- 1. Remote Construction
+        -- Naming Scheme: Service_Method (Flattened)
+        local remoteName = serviceName .. "_" .. methodName
         local rf = Instance.new("RemoteFunction", self._root)
-        rf.Name = name .. "_" .. method -- Flattened Name
+        rf.Name = remoteName
         
-        if rule.RateLimit then
-            self._limit:SetRule(rule.Action, rule.RateLimit.Max, rule.RateLimit.Interval)
+        -- 2. Setup Rate Limit (Default to method name as Action Key)
+        local limitKey = serviceName .. ":" .. methodName
+        if rules.RateLimit then
+            self._limit:SetRule(limitKey, rules.RateLimit.Max, rules.RateLimit.Interval)
         end
         
+        -- 3. Bind Execution
         rf.OnServerInvoke = function(player, ...)
-            -- 1. Rate Limit
-            if rule.RateLimit and not self._limit:Check(player, rule.Action) then
-                return {Success=false, Error="Rate Limit Exceeded"}
+            -- A. Rate Limit Check
+            if rules.RateLimit and not self._limit:Check(player, limitKey) then
+                self._logger:Warn("NET", "Rate Limit Breached", {Plr=player.Name, Method=methodName})
+                return {Success=false, Error="Rate Limit Exceeded", Code=429}
             end
             
-            -- 2. Guard Input (Sanitasi)
-            local args = {...}
-            for i,v in ipairs(args) do args[i] = Guard.CleanIn(v) end
+            -- B. Sanitize Inbound (Deep Clean)
+            local rawArgs = {...}
+            local args = {}
+            for i,v in ipairs(rawArgs) do args[i] = Guard.CleanIn(v) end
             
-            -- 3. STRICT TYPE VALIDATION (New Feature)
-            if rule.Args then
-                local ok, msg = CheckTypes(args, rule.Args)
-                if not ok then 
-                    self._logger:Warn("NET", "Type Mismatch", {Plr=player.Name, Err=msg})
-                    return {Success=false, Error="Invalid Argument Type"} 
+            -- C. Strict Type Checking
+            if rules.Args then
+                local ok, err = CheckTypes(args, rules.Args)
+                if not ok then
+                     self._logger:Warn("NET", "Type Guard Catch", {Plr=player.Name, Err=err})
+                     return {Success=false, Error="Invalid Argument Type", Code=400}
                 end
             end
             
-            -- 4. Call Service
-            local srv = self._services[name]
-            if srv and srv[method] then
-                local result = {srv[method](srv, player, table.unpack(args))}
-                -- Sanitize Output
-                for i,v in ipairs(result) do result[i] = Guard.SanitizeOutbound(v) end
-                return table.unpack(result)
+            -- D. Execution
+            local service = self._services[serviceName]
+            if service and service[methodName] then
+                -- Call Method: Service:Method(player, ...)
+                -- Using pcall to prevent server crash from logic error
+                local success, result1, result2 = pcall(service[methodName], service, player, table.unpack(args))
+                
+                if not success then
+                    self._logger:Error("NET", "Execution Error", {Method=methodName, Err=result1})
+                    return {Success=false, Error="Internal Server Error", Code=500}
+                end
+                
+                -- E. Sanitize Outbound
+                return Guard.SanitizeOutbound(result1) -- Single result return standard
             end
-            return {Success=false, Error="Method 404"}
+            
+            return {Success=false, Error="Service Not Bound", Code=404}
         end
     end
 end
 
-function Bridge:Bind(name, obj) self._services[name] = obj end
+function Bridge:Bind(name, srv) self._services[name] = srv end
 return Bridge

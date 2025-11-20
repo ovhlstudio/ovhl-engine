@@ -1,43 +1,42 @@
---[[ @Component: SharedConfig (Data Driven) ]]
 return {
-	Identity = { Name = "PrototypeShop", Version = "2.1" },
+    Meta = {
+        Name = "PrototypeShop",
+        Type = "Feature",
+        Version = "2.1.0", 
+        Author = "OVHL Principal"
+    },
 
-	Permission = {
-		Actions = { Buy = 0, Restock = 4 }, -- Guest / Admin
-	},
+    -- [FIXED] DIKEMBALIKAN AGAR TOPBAR PLUS DETECT
+    Topbar = {
+        Enabled = true,
+        Text = "SHOP",
+        Icon = "rbxassetid://4882429582", -- Shop Icon
+        Order = 2
+    },
 
-	Topbar = {
-		Enabled = true,
-		Text = "KLIK SHOP",
-		Icon = "rbxassetid://112605442047022",
-		Shortcut = Enum.KeyCode.P,
-	},
+    Behavior = { InteractionDistance = 10, OneTimePurchase = true },
 
-	UI = {
-		NativeTarget = "ShopNativeUI",
+    UI = {
+        Type = "Hybrid",
+        NativeTarget = "ShopNativeUI",
+        Components = {
+            HeaderLabel = { Name = "Txt_Header" },
+            InfoLabel   = { Name = "Txt_Info" },
+            BuyBtn      = { Name = "Btn_Buy" },
+            CancelBtn   = { Name = "Btn_Close" } 
+        },
+        Defaults = {
+            HeaderLabel = "LEGENDARY ARMORY",
+            InfoLabel   = "Item: Fire Sword\nPrice: 1.500 Coins",
+            BuyBtn      = "PURCHASE SWORD",
+            CancelBtn   = "CLOSE MENU"
+        }
+    },
 
-		-- MAPPING KE LOGIC/SCANNER
-		Components = {
-			-- Format: LogicName = { Name="NativeInstanceName", ... }
-			HeaderLabel = { Name = "Txt_Header" },
-			InfoLabel = { Name = "Txt_Info" },
-			BuyBtn = { Name = "Btn_Buy" },
-			CancelBtn = { Name = "Btn_Close" },
-		},
-
-		-- DATA TEKS (SOURCE OF TRUTH)
-		-- Controller akan menyuntikkan ini ke UI (Baik Native maupun Fusion)
-		Defaults = {
-			HeaderLabel = "LEGENDARY ARMORY",
-			InfoLabel = "Item: Fire Sword\nPrice: 1.500 Coins",
-			BuyBtn = "PURCHASE SWORD",
-			CancelBtn = "CLOSE MENU",
-		},
-	},
-
-	Network = {
-		Requests = {
-			BuyItem = { Args = { "string" }, Action = "Buy", RateLimit = { Max = 5, Interval = 2 } },
-		},
-	},
+    Network = {
+        Route = "PrototypeShop",
+        Requests = {
+            BuyItem = { Args = {"string"}, RateLimit = {Max=5, Interval=2} }
+        }
+    }
 }
