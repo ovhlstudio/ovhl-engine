@@ -1,80 +1,77 @@
---[[ @Component: Kernel (Server - Final Fix) ]]
+--[[ @Component: Kernel (Server - DI Container) ]]
 local RS = game:GetService("ReplicatedStorage")
 local SS = game:GetService("ServerScriptService")
 
-local Logger = require(RS.OVHL.Core.SmartLogger)
+local LoggerFactory = require(RS.OVHL.Core.LoggerFactory)
 local Config = require(RS.OVHL.Core.SharedConfigLoader)
+local Context = require(RS.OVHL.Core.Context)
 local Bridge = require(SS.OVHL.Core.NetworkBridge)
 local RateLimiter = require(SS.OVHL.Core.RateLimiter)
+local DomainResolver = require(RS.OVHL.Core.Logging.DomainResolver)
 
--- Core Services
-local PermSrv = require(SS.OVHL.Services.PermissionService)
-local DataMgr = require(SS.OVHL.Services.DataManager)
-local NotifSrv = require(SS.OVHL.Services.NotificationService)
+-- Static Requires for Core Services
+local Services = {
+    Perms = require(SS.OVHL.Services.PermissionService),
+    Data  = require(SS.OVHL.Services.DataManager),
+    Notif = require(SS.OVHL.Services.NotificationService)
+}
+-- Adapters Loaded Here
+local Adapters = {
+    DB = require(SS.OVHL.Core.Permissions.Adapters.InternalDB),
+    HD = require(SS.OVHL.Core.Permissions.Adapters.HDAdmin)
+}
 
 local Kernel = {}
 
 function Kernel.Boot()
-    local log = Logger.New("KERNEL", {LogLevel="DEBUG"})
-    log:Info("🚀 SERVER STARTUP (Kernel Final Fix)")
-    
+    local log = LoggerFactory.System()
+    log:Info("🚀 SERVER STARTUP")
+
     local systems = {
-        Logger = log,
-        ConfigLoader = Config,
-        RateLimiter = RateLimiter.New(),
-        Network = nil,
-        Permissions = PermSrv, 
-        DataManager = DataMgr.New(),
-        Notification = NotifSrv
+        LoggerFactory = LoggerFactory, ConfigLoader = Config, RateLimiter = RateLimiter.New(),
+        Permissions = Services.Perms, DataManager = Services.Data, Notification = Services.Notif,
+        Adapters = Adapters
     }
-    systems.Network = Bridge.New(systems)
-    
-    -- MODULE SCANNING
-    local services = {}
-    local modFolder = SS.OVHL.Modules
-    
-    for _, f in ipairs(modFolder:GetChildren()) do
+
+    local ctx = Context.New(systems)
+    ctx.Network = Bridge.New(ctx)
+    systems.Network = ctx.Network
+
+    -- Inject Loggers
+    Services.Perms.Logger = LoggerFactory.Create("PERMISSION")
+    Services.Data.Logger = LoggerFactory.Create("DATA")
+    Services.Notif.Logger = LoggerFactory.Create("NOTIF")
+
+    -- Load Feature Modules
+    local modules = {}
+    for _, f in ipairs(SS.OVHL.Modules:GetChildren()) do
         local script = f:FindFirstChild("Service")
         if script then
             local srv = require(script)
-            local cfg = Config.Load(f.Name)
+            local domain = DomainResolver.Resolve(f.Name)
+            srv.Logger = LoggerFactory.Create(domain)
+            srv._config = Config.Load(f.Name)
+            modules[f.Name] = srv
             
-            srv.Logger = Logger.New(string.upper(f.Name), cfg.Meta and "INFO")
-            srv._config = cfg
-            services[f.Name] = srv
-            
-            if cfg.Network then
-                systems.Network:Register(f.Name, cfg.Network)
+            if srv._config.Network then
+                systems.Network:Register(f.Name, srv._config.Network)
                 systems.Network:Bind(f.Name, srv)
             end
         end
     end
+
+    -- Lifecycle
+    local function run(o, m) if o[m] then o[m](o, ctx) end end
     
-    -- [PHASE 1] CORE INIT
-    log:Info("Phase 1: Core Init")
-    if systems.Permissions.Init then systems.Permissions:Init(systems) end
-    if systems.DataManager.Init then systems.DataManager:Init(systems) end
-    if systems.Notification.Init then systems.Notification:Init(systems) end
-    
-    -- [PHASE 2] MODULE INIT
-    log:Info("Phase 2: Module Init")
-    for _, s in pairs(services) do
-        if s.Init then s:Init(systems) end
-    end
-    
-    -- [PHASE 3] STARTUP SEQUENCE (FIXED HERE)
-    log:Info("Phase 3: Async Start")
-    
-    -- A. START CORE SYSTEMS FIRST! (THE MISSING LINE)
-    if systems.Permissions.Start then task.spawn(function() systems.Permissions:Start() end) end
-    if systems.DataManager.Start then task.spawn(function() systems.DataManager:Start() end) end
-    if systems.Notification.Start then task.spawn(function() systems.Notification:Start() end) end
-    
-    -- B. START MODULES
-    for _, s in pairs(services) do
-        if s.Start then task.spawn(function() s:Start() end) end
-    end
-    
+    log:Info("Phase 1: Init")
+    run(Services.Perms, "Init"); run(Services.Data, "Init"); run(Services.Notif, "Init")
+    for _, m in pairs(modules) do run(m, "Init") end
+
+    log:Info("Phase 2: Start")
+    local function bg(o) if o.Start then task.spawn(function() o:Start() end) end end
+    bg(Services.Perms); bg(Services.Data); bg(Services.Notif)
+    for _, m in pairs(modules) do bg(m) end
+
     log:Info("✅ SERVER READY")
 end
 return Kernel

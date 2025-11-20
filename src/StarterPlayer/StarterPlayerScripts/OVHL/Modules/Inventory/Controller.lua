@@ -36,7 +36,7 @@ end
 function Ctrl:FetchItems()
     self.Api:GetItems():andThen(function(res)
         if res and res.Success then
-            -- [HOTFIX] USE :set() BECAUSE CALLABLE FAILED
+            -- Clean state update
             self.State.Items:set(res.Data)
             self.Log:Info("Refreshed items", {Count = #res.Data})
         end

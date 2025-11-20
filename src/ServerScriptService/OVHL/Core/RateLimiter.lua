@@ -1,4 +1,4 @@
---[[ @Component: RateLimiter (Server) ]]
+--[[ @Component: RateLimiter (Hardened V15) ]]
 local RateLimiter = {}
 RateLimiter.__index = RateLimiter
 
@@ -7,7 +7,11 @@ function RateLimiter.New()
 end
 
 function RateLimiter:SetRule(action, max, window)
-    self._rules[action] = {Max=max, Window=window}
+    -- Safety Fallback: Default to 1 second if nil
+    self._rules[action] = {
+        Max = max or 10,
+        Window = window or 1 -- [FIX] Anti-Crash Default
+    }
 end
 
 function RateLimiter:Check(player, action)
@@ -18,6 +22,7 @@ function RateLimiter:Check(player, action)
     local now = os.time()
     local entry = self._track[key]
     
+    -- [FIX] rule.Window is now guaranteed to be a number
     if not entry or (now - entry.Start > rule.Window) then
         self._track[key] = {Count=1, Start=now}
         return true

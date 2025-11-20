@@ -1,12 +1,14 @@
---[[ @Component: Kernel (Client - V2 Service Injection) ]]
-local RS = game:GetService("ReplicatedStorage")
+--[[ @Component: Kernel (Client - AAA Automation) [PATCHED 3.1] ]]
+local RS = game:GetService('ReplicatedStorage')
 local PS = game:GetService("Players").LocalPlayer:WaitForChild("PlayerScripts")
 
-local Logger = require(RS.OVHL.Core.SmartLogger)
+local LoggerFactory = require(RS.OVHL.Core.LoggerFactory)
 local Config = require(RS.OVHL.Core.SharedConfigLoader)
 local Bridge = require(PS.OVHL.Core.NetworkBridge)
+local DomainResolver = require(RS.OVHL.Core.Logging.DomainResolver)
+local Context = require(RS.OVHL.Core.Context)
 
--- V2 SERVICES
+-- Client Services
 local FinderService = require(PS.OVHL.Core.FinderService)
 local UIService     = require(PS.OVHL.Core.UIService)
 local Topbar        = require(PS.OVHL.Controllers.TopbarPlusAdapter)
@@ -14,25 +16,28 @@ local Topbar        = require(PS.OVHL.Controllers.TopbarPlusAdapter)
 local Kernel = {}
 
 function Kernel.Boot()
-    local log = Logger.New("KERNEL")
-    log:Info("🚀 CLIENT STARTUP (Phase 2 Services Injected)")
+    local log = LoggerFactory.System()
+    log:Info("🚀 CLIENT STARTUP (AAA v3.1 Patched)")
     
-    -- CONTEXT INJECTION
-    local ctx = {
-        Logger = log,
+    local topbarInstance = Topbar.New()
+    
+    -- [FIX] Added ConfigLoader to systems table
+    local systems = {
+        LoggerFactory = LoggerFactory,
+        ConfigLoader = Config, -- WAS MISSING
         Network = Bridge.New(),
-        
-        -- REPLACED "UI" (UIEngine) -> With 2 Explicit Services
         Finder = FinderService,
-        UI = UIService,        -- Note: "ctx.UI" sekarang adalah Service Manager, bukan Engine Scan lagi.
-        
-        Topbar = Topbar.New()
+        UI = UIService,
+        Topbar = topbarInstance
     }
     
-    ctx.Topbar:Init(ctx)
+    local ctx = Context.New(systems)
+    
+    topbarInstance:Init(ctx)
     
     local modules = {}
     
+    -- Scanner
     local function Scan(dir)
         if not dir then return end
         for _, f in ipairs(dir:GetChildren()) do
@@ -41,13 +46,13 @@ function Kernel.Boot()
                 if script then
                     local mod = require(script)
                     mod.Name = f.Name
-                    
-                    -- AUTO LOAD CONFIG STANDARD V2
                     mod._config = Config.Load(f.Name)
-                    mod.Logger = Logger.New(string.upper(f.Name), mod._config.Meta and "INFO")
+                    
+                    local domain = DomainResolver.Resolve(f.Name)
+                    mod.Logger = LoggerFactory.Create(domain)
                     
                     modules[f.Name] = mod
-                    log:Debug("Indexed Controller", {Name = f.Name})
+                    log:Debug("Indexed", {Name=f.Name})
                 end
             end
         end
@@ -65,10 +70,7 @@ function Kernel.Boot()
     for name, m in pairs(modules) do
         task.spawn(function()
             if m._config and m._config.Topbar and m._config.Topbar.Enabled then
-                -- Topbar V2 Integration
-                local t_cfg = m._config.Topbar
-                ctx.Topbar:Add(name, t_cfg, function(state) 
-                     -- Universal Toggle Handling
+                ctx.Topbar:Add(name, m._config.Topbar, function(state) 
                     if m.Toggle then m:Toggle(state) end 
                 end)
             end
@@ -76,6 +78,7 @@ function Kernel.Boot()
         end)
     end
     
-    log:Info("✅ CLIENT READY (Services Active)")
+    log:Info("✅ CLIENT READY")
 end
+
 return Kernel

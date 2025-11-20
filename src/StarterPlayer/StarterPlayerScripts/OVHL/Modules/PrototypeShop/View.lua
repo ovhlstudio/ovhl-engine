@@ -1,12 +1,14 @@
---[[ @Component: ShopView (Fallback Fusion V2 Strict) ]]
+--[[ @Component: ShopView (V9 - Modernized) ]]
 local RS = game:GetService("ReplicatedStorage")
 local Fusion = require(RS.Packages.Fusion)
 
-local UI = RS.OVHL.UI
-local Theme  = require(UI.Foundation.Theme)
-local Window = require(UI.Components.Surfaces.Window)
-local Button = require(UI.Components.Inputs.Button)
-local Flex   = require(UI.Components.Containers.Flex)
+local OVHL = require(RS.OVHL.OVHL)
+local UI = OVHL.UI
+local Theme = OVHL.Theme -- Consistent Usage
+
+local Window = UI.Window
+local Button = UI.Button
+local Flex   = UI.Flex
 
 local scoped = Fusion.scoped
 local Children = Fusion.Children
@@ -15,7 +17,6 @@ local View = {}
 
 function View.New(cfgUI, cb)
     local scope = scoped(Fusion)
-    -- Access Config via "Defaults" V2 key
     local txt = cfgUI.Defaults 
     
     local contentBody = Flex(scope, {
@@ -38,13 +39,12 @@ function View.New(cfgUI, cb)
                     }
                 }
             },
-            
+            -- Modern UI Calls
             Button(scope, {
                 Text = txt.BuyBtn, 
                 Color = Theme.Colors.Success, 
                 OnClick = function() cb.OnBuy("Sword") end
             }),
-            
             Button(scope, {
                 Text = txt.CancelBtn,
                 Color = Theme.Colors.Surface,
@@ -61,7 +61,7 @@ function View.New(cfgUI, cb)
     })
 
     local gui = scope:New "ScreenGui" {
-        Name = "Shop_Fallback_Fusion",
+        Name = "Shop_Fusion_V9",
         Parent = game.Players.LocalPlayer.PlayerGui,
         Enabled = false,
         DisplayOrder = 50,

@@ -1,26 +1,33 @@
---[[ @Component: FusionHelper (Trap-Free) ]]
-local FusionHelper = {}
+--[[
+    OVHL Fusion Helper (0.3 Compatible)
+]]
+local Package = script.Parent.Parent.Parent.Parent.Packages
+local Fusion = require(Package:FindFirstChild("Fusion") or Package:FindFirstChild("_Index"))
 
-function FusionHelper.read(state)
-    -- 1. Basic types check
-    if type(state) ~= "table" and type(state) ~= "function" then
-        return state
+local FusionHelper = {}
+local peek = Fusion.peek
+
+-- Deterministik: Cek apakah ini object Fusion
+function FusionHelper.isState(target)
+    return type(target) == "table" and target.type ~= nil and target.kind ~= nil
+end
+
+-- Fusion 0.3 Safe Read
+function FusionHelper.read(target)
+    if FusionHelper.isState(target) then
+        -- Gunakan peek() untuk baca value tanpa track dependency
+        return peek(target)
+    elseif type(target) == "function" then
+        return target()
+    else
+        return target
     end
-    
-    -- 2. Callable Check (The only safe way in Fusion 0.3)
-    local mt = getmetatable(state)
-    if mt and mt.__call then
-        -- Ini adalah State Object (Computed, Value, dll)
-        return state() 
-    end
-    
-    -- 3. Function Check
-    if type(state) == "function" then
-        return state()
-    end
-    
-    -- 4. Raw Table (Not a state)
-    return state
+end
+
+function FusionHelper.readOr(target, defaultVal)
+    local val = FusionHelper.read(target)
+    if val == nil then return defaultVal end
+    return val
 end
 
 return FusionHelper
